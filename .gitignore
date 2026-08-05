@@ -1,0 +1,96 @@
+# Local diagnostic and runtime logs
+debug.log
+*.log
+logs/
+*.log.*
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Node.js dependencies, caches, and build output
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+dist/
+build/
+.vite/
+vite.config.*.timestamp-*
+*.tsbuildinfo
+
+# JavaScript and browser test output
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+blob-report/
+.vitest/
+
+# Python virtual environments and caches
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local databases and state
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor-local files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+*.tmp
+*.bak
+
+# Generated artifacts and local exports
+artifacts/
+generated/
+exports/
+local-exports/
+cad-output/
+cad-exports/
+generated-cad/
+preview-output/
+mesh-output/
+simulation-output/
