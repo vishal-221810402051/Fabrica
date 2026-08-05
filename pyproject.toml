@@ -10,6 +10,7 @@ dev = [
   "fabrica-api",
   "fabrica-cad",
   "httpx>=0.28.1",
+  "jsonschema>=4.25.1",
   "pyright>=1.1.407",
   "pytest>=9.0.1",
   "ruff>=0.14.6",
@@ -37,6 +38,7 @@ select = ["E", "F", "I", "UP", "B"]
 testpaths = [
   "apps/api/tests",
   "cad-service/tests",
+  "tests/integration",
   "tests/scripts",
 ]
 addopts = "-q"

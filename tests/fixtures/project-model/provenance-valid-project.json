@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "0.1.0",
+  "id": "project_provenance",
+  "name": "Provenance valid project",
+  "createdAt": "2026-08-05T00:00:00Z",
+  "updatedAt": "2026-08-05T00:00:00Z",
+  "chip": {
+    "id": "chip_provenance",
+    "name": "Provenance chip",
+    "overallDimensions": {
+      "width": {
+        "value": 20,
+        "unit": "mm",
+        "provenance": {
+          "source": "ai-assumed",
+          "note": "Explicit assumption for fixture",
+          "timestamp": "2026-08-05T00:00:00Z",
+          "actor": "fixture"
+        }
+      },
+      "height": {
+        "value": 10,
+        "unit": "mm",
+        "provenance": { "source": "system-default" }
+      },
+      "depth": {
+        "value": 1,
+        "unit": "mm",
+        "provenance": { "source": "manufacturer-supplied", "reference": "fixture" }
+      }
+    },
+    "layerIds": ["layer_provenance"],
+    "materialId": "material_provenance",
+    "metadata": {}
+  },
+  "layers": [
+    {
+      "id": "layer_provenance",
+      "name": "Layer",
+      "order": 0,
+      "thickness": {
+        "value": 1,
+        "unit": "mm",
+        "provenance": { "source": "experimentally-calibrated" }
+      },
+      "materialId": "material_provenance",
+      "metadata": {}
+    }
+  ],
+  "lanes": [],
+  "components": [],
+  "ports": [],
+  "connections": [],
+  "fluids": [],
+  "materials": [
+    {
+      "id": "material_provenance",
+      "name": "Fixture material",
+      "category": "other",
+      "metadata": {}
+    }
+  ],
+  "manufacturingProcesses": [],
+  "validationResults": [],
+  "exportConfiguration": {
+    "requestedFormats": ["json"],
+    "includeValidationResults": true,
+    "metadata": {}
+  },
+  "metadata": {},
+  "extensions": {}
+}

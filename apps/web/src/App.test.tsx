@@ -8,7 +8,7 @@ describe("App", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders the Phase 1 status interface", () => {
+  it("renders the Phase 2 status interface", () => {
     render(<App />);
 
     expect(
@@ -16,7 +16,7 @@ describe("App", () => {
         name: "Fabricgamma development environment",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Phase 1 foundation")).toBeInTheDocument();
+    expect(screen.getByText("Phase 2 foundation")).toBeInTheDocument();
   });
 
   it("handles unavailable services without crashing", async () => {

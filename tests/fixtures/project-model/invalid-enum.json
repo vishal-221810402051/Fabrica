@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "0.1.0",
+  "id": "project_invalid_enum",
+  "name": "Invalid enum",
+  "createdAt": "2026-08-05T00:00:00Z",
+  "updatedAt": "2026-08-05T00:00:00Z",
+  "chip": {
+    "id": "chip_invalid_enum",
+    "name": "Chip",
+    "overallDimensions": {
+      "width": { "value": 1, "unit": "mm", "provenance": { "source": "user-entered" } },
+      "height": {
+        "value": 1,
+        "unit": "mm",
+        "provenance": { "source": "user-entered" }
+      },
+      "depth": { "value": 1, "unit": "mm", "provenance": { "source": "user-entered" } }
+    },
+    "layerIds": [],
+    "metadata": {}
+  },
+  "layers": [],
+  "lanes": [],
+  "components": [],
+  "ports": [],
+  "connections": [],
+  "fluids": [
+    {
+      "id": "fluid_invalid_enum",
+      "name": "Fluid",
+      "category": "plasma",
+      "metadata": {}
+    }
+  ],
+  "materials": [],
+  "manufacturingProcesses": [],
+  "validationResults": [],
+  "exportConfiguration": {
+    "requestedFormats": ["json"],
+    "includeValidationResults": true,
+    "metadata": {}
+  },
+  "metadata": {},
+  "extensions": {}
+}

@@ -1,0 +1,41 @@
+import { readFile, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+
+import { format, resolveConfig } from "prettier";
+import { z } from "zod";
+
+const require = createRequire(import.meta.url);
+const {
+  PROJECT_JSON_SCHEMA_ID,
+  PROJECT_JSON_SCHEMA_TITLE,
+  ProjectSchema,
+} = require("../dist/index.js");
+
+const expectedPath = resolve("schema/project.v0.1.0.schema.json");
+const temporaryPath = resolve(
+  tmpdir(),
+  `fabricgamma-project-schema-${process.pid}.json`,
+);
+const prettierOptions = (await resolveConfig(expectedPath)) ?? {};
+
+const schema = z.toJSONSchema(ProjectSchema, {
+  target: "draft-2020-12",
+});
+schema.$schema = "https://json-schema.org/draft/2020-12/schema";
+schema.$id = PROJECT_JSON_SCHEMA_ID;
+schema.title = PROJECT_JSON_SCHEMA_TITLE;
+
+const generated = await format(JSON.stringify(schema), {
+  ...prettierOptions,
+  filepath: expectedPath,
+  parser: "json",
+});
+const expected = await readFile(expectedPath, "utf8");
+await rm(temporaryPath, { force: true });
+
+if (generated !== expected) {
+  console.error("Generated project JSON Schema is stale.");
+  process.exit(1);
+}

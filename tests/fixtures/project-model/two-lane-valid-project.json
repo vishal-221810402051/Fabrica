@@ -1,0 +1,328 @@
+{
+  "schemaVersion": "0.1.0",
+  "id": "project_two_lane",
+  "name": "Two lane valid project",
+  "createdAt": "2026-08-05T00:00:00Z",
+  "updatedAt": "2026-08-05T01:00:00Z",
+  "chip": {
+    "id": "chip_two_lane",
+    "name": "Two lane chip",
+    "overallDimensions": {
+      "width": {
+        "value": 40,
+        "unit": "mm",
+        "provenance": { "source": "user-entered" }
+      },
+      "height": {
+        "value": 20,
+        "unit": "mm",
+        "provenance": { "source": "user-entered" }
+      },
+      "depth": { "value": 2, "unit": "mm", "provenance": { "source": "user-entered" } }
+    },
+    "layerIds": ["layer_flow"],
+    "materialId": "material_glass",
+    "metadata": { "fixture": true }
+  },
+  "layers": [
+    {
+      "id": "layer_flow",
+      "name": "Flow layer",
+      "order": 0,
+      "thickness": {
+        "value": 0.8,
+        "unit": "mm",
+        "provenance": { "source": "user-entered" }
+      },
+      "materialId": "material_glass",
+      "metadata": {}
+    }
+  ],
+  "lanes": [
+    {
+      "id": "lane_sample",
+      "name": "Sample lane",
+      "componentIds": ["component_reservoir_a", "component_channel_a"],
+      "metadata": {}
+    },
+    {
+      "id": "lane_reagent",
+      "name": "Reagent lane",
+      "componentIds": ["component_reservoir_b", "component_channel_b"],
+      "metadata": {}
+    }
+  ],
+  "components": [
+    {
+      "id": "component_reservoir_a",
+      "kind": "reservoir",
+      "name": "Sample inlet",
+      "laneId": "lane_sample",
+      "layerId": "layer_flow",
+      "position": {
+        "x": { "value": 0, "unit": "mm", "provenance": { "source": "user-entered" } },
+        "y": { "value": 0, "unit": "mm", "provenance": { "source": "user-entered" } }
+      },
+      "rotation": {
+        "value": 0,
+        "unit": "rad",
+        "provenance": { "source": "user-entered" }
+      },
+      "portIds": ["port_reservoir_a_out"],
+      "metadata": {},
+      "extensions": {},
+      "reservoir": {
+        "category": "inlet",
+        "dimensions": {
+          "width": {
+            "value": 3,
+            "unit": "mm",
+            "provenance": { "source": "user-entered" }
+          },
+          "height": {
+            "value": 3,
+            "unit": "mm",
+            "provenance": { "source": "user-entered" }
+          },
+          "depth": {
+            "value": 1,
+            "unit": "mm",
+            "provenance": { "source": "user-entered" }
+          }
+        },
+        "declaredCapacity": {
+          "value": 9,
+          "unit": "mm3",
+          "provenance": { "source": "user-entered" }
+        }
+      }
+    },
+    {
+      "id": "component_channel_a",
+      "kind": "channel",
+      "name": "Sample channel",
+      "laneId": "lane_sample",
+      "layerId": "layer_flow",
+      "position": {
+        "x": { "value": 5, "unit": "mm", "provenance": { "source": "user-entered" } },
+        "y": { "value": 0, "unit": "mm", "provenance": { "source": "user-entered" } }
+      },
+      "rotation": {
+        "value": 0,
+        "unit": "rad",
+        "provenance": { "source": "user-entered" }
+      },
+      "portIds": ["port_channel_a_in", "port_channel_a_out"],
+      "metadata": {},
+      "extensions": { "com.example.fixture": { "label": "sample channel" } },
+      "channel": {
+        "crossSection": "rectangular",
+        "width": {
+          "value": 0.5,
+          "unit": "mm",
+          "provenance": { "source": "user-entered" }
+        },
+        "depth": {
+          "value": 0.2,
+          "unit": "mm",
+          "provenance": { "source": "user-entered" }
+        },
+        "length": {
+          "value": 20,
+          "unit": "mm",
+          "provenance": { "source": "user-entered" }
+        }
+      }
+    },
+    {
+      "id": "component_reservoir_b",
+      "kind": "reservoir",
+      "name": "Reagent inlet",
+      "laneId": "lane_reagent",
+      "layerId": "layer_flow",
+      "position": {
+        "x": { "value": 0, "unit": "mm", "provenance": { "source": "user-entered" } },
+        "y": { "value": 5, "unit": "mm", "provenance": { "source": "user-entered" } }
+      },
+      "rotation": {
+        "value": 0,
+        "unit": "rad",
+        "provenance": { "source": "user-entered" }
+      },
+      "portIds": ["port_reservoir_b_out"],
+      "metadata": {},
+      "extensions": {},
+      "reservoir": {
+        "category": "reagent",
+        "dimensions": {
+          "width": {
+            "value": 3,
+            "unit": "mm",
+            "provenance": { "source": "user-entered" }
+          },
+          "height": {
+            "value": 3,
+            "unit": "mm",
+            "provenance": { "source": "user-entered" }
+          },
+          "depth": {
+            "value": 1,
+            "unit": "mm",
+            "provenance": { "source": "user-entered" }
+          }
+        }
+      }
+    },
+    {
+      "id": "component_channel_b",
+      "kind": "channel",
+      "name": "Reagent channel",
+      "laneId": "lane_reagent",
+      "layerId": "layer_flow",
+      "position": {
+        "x": { "value": 5, "unit": "mm", "provenance": { "source": "user-entered" } },
+        "y": { "value": 5, "unit": "mm", "provenance": { "source": "user-entered" } }
+      },
+      "rotation": {
+        "value": 0,
+        "unit": "rad",
+        "provenance": { "source": "user-entered" }
+      },
+      "portIds": ["port_channel_b_in", "port_channel_b_out"],
+      "metadata": {},
+      "extensions": {},
+      "channel": {
+        "crossSection": "circular",
+        "diameter": {
+          "value": 0.4,
+          "unit": "mm",
+          "provenance": { "source": "user-entered" }
+        },
+        "length": {
+          "value": 18,
+          "unit": "mm",
+          "provenance": { "source": "user-entered" }
+        }
+      }
+    }
+  ],
+  "ports": [
+    {
+      "id": "port_reservoir_a_out",
+      "componentId": "component_reservoir_a",
+      "name": "sample outlet",
+      "direction": "output",
+      "fluidId": "fluid_sample",
+      "metadata": {}
+    },
+    {
+      "id": "port_channel_a_in",
+      "componentId": "component_channel_a",
+      "name": "sample channel inlet",
+      "direction": "input",
+      "fluidId": "fluid_sample",
+      "metadata": {}
+    },
+    {
+      "id": "port_channel_a_out",
+      "componentId": "component_channel_a",
+      "name": "sample channel outlet",
+      "direction": "output",
+      "fluidId": "fluid_sample",
+      "metadata": {}
+    },
+    {
+      "id": "port_reservoir_b_out",
+      "componentId": "component_reservoir_b",
+      "name": "reagent outlet",
+      "direction": "output",
+      "fluidId": "fluid_buffer",
+      "metadata": {}
+    },
+    {
+      "id": "port_channel_b_in",
+      "componentId": "component_channel_b",
+      "name": "reagent channel inlet",
+      "direction": "input",
+      "fluidId": "fluid_buffer",
+      "metadata": {}
+    },
+    {
+      "id": "port_channel_b_out",
+      "componentId": "component_channel_b",
+      "name": "reagent channel outlet",
+      "direction": "output",
+      "fluidId": "fluid_buffer",
+      "metadata": {}
+    }
+  ],
+  "connections": [
+    {
+      "id": "connection_sample",
+      "sourcePortId": "port_reservoir_a_out",
+      "targetPortId": "port_channel_a_in",
+      "metadata": {}
+    },
+    {
+      "id": "connection_reagent",
+      "sourcePortId": "port_reservoir_b_out",
+      "targetPortId": "port_channel_b_in",
+      "metadata": {}
+    }
+  ],
+  "fluids": [
+    {
+      "id": "fluid_sample",
+      "name": "Sample",
+      "category": "sample",
+      "metadata": {}
+    },
+    {
+      "id": "fluid_buffer",
+      "name": "Buffer",
+      "category": "buffer",
+      "metadata": {}
+    }
+  ],
+  "materials": [
+    {
+      "id": "material_glass",
+      "name": "Glass",
+      "category": "glass",
+      "reference": "local fixture material",
+      "metadata": {}
+    }
+  ],
+  "manufacturingProcesses": [
+    {
+      "id": "process_fixture",
+      "name": "Fixture process",
+      "processType": "other",
+      "profileReference": "fixture-profile",
+      "metadata": {}
+    }
+  ],
+  "validationResults": [
+    {
+      "id": "result_fixture",
+      "ruleId": "fixture.noop",
+      "severity": "information",
+      "message": "Fixture validation placeholder",
+      "entityReferences": [
+        {
+          "entityType": "component",
+          "entityId": "component_channel_a"
+        }
+      ],
+      "createdAt": "2026-08-05T01:00:00Z",
+      "metadata": {}
+    }
+  ],
+  "exportConfiguration": {
+    "requestedFormats": ["json"],
+    "includeValidationResults": true,
+    "metadata": {}
+  },
+  "metadata": { "fixture": "two-lane" },
+  "extensions": {}
+}

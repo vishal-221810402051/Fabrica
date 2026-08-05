@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "0.1.0",
+  "id": "project_minimal",
+  "name": "Minimal valid project",
+  "createdAt": "2026-08-05T00:00:00Z",
+  "updatedAt": "2026-08-05T00:00:00Z",
+  "chip": {
+    "id": "chip_minimal",
+    "name": "Minimal chip",
+    "overallDimensions": {
+      "width": {
+        "value": 25,
+        "unit": "mm",
+        "provenance": { "source": "user-entered" }
+      },
+      "height": {
+        "value": 10,
+        "unit": "mm",
+        "provenance": { "source": "user-entered" }
+      },
+      "depth": {
+        "value": 1.5,
+        "unit": "mm",
+        "provenance": { "source": "user-entered" }
+      }
+    },
+    "layerIds": ["layer_control"],
+    "materialId": "material_pdms",
+    "metadata": {}
+  },
+  "layers": [
+    {
+      "id": "layer_control",
+      "name": "Control layer",
+      "order": 0,
+      "thickness": {
+        "value": 1.5,
+        "unit": "mm",
+        "provenance": { "source": "user-entered" }
+      },
+      "materialId": "material_pdms",
+      "metadata": {}
+    }
+  ],
+  "lanes": [],
+  "components": [],
+  "ports": [],
+  "connections": [],
+  "fluids": [],
+  "materials": [
+    {
+      "id": "material_pdms",
+      "name": "PDMS",
+      "category": "pdms",
+      "reference": "local fixture material",
+      "metadata": {}
+    }
+  ],
+  "manufacturingProcesses": [],
+  "validationResults": [],
+  "exportConfiguration": {
+    "requestedFormats": ["json"],
+    "includeValidationResults": true,
+    "metadata": {}
+  },
+  "metadata": {},
+  "extensions": {}
+}

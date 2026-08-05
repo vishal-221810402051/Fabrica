@@ -1,6 +1,9 @@
 # Testing Strategy
 
-Phase 1 adds the first executable workspace checks. Later product, engineering, CAD, persistence, and migration tests remain deferred until those capabilities exist.
+Phase 2 adds the first project-model, unit-system, generated-schema, and
+cross-language conformance checks. Later product workflows, engineering
+calculations, CAD, persistence, and migration tests remain deferred until those
+capabilities exist.
 
 ## Objectives
 
@@ -35,7 +38,7 @@ Testing must protect the authoritative project model, cross-language contract co
 
 ESLint, Prettier, Ruff, Pyright, and the TypeScript compiler support quality checks but are not substitutes for behavioral tests.
 
-## Phase 1 Commands
+## Phase 2 Commands
 
 ```powershell
 corepack pnpm format:check
@@ -43,9 +46,13 @@ corepack pnpm lint
 corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm build
+corepack pnpm schema:check
 ```
 
-These root scripts invoke the configured JavaScript and Python checks. They validate the health-check foundations and package boundaries only.
+These root scripts invoke the configured JavaScript and Python checks. They now
+cover the health-check foundations, package boundaries, unit conversions,
+project-model runtime validation, JSON Schema generation, and Python parity
+tests.
 
 ## Fixture Strategy
 

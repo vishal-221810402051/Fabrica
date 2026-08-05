@@ -1,6 +1,6 @@
 # Environment Strategy
 
-Phase 0 documents the planned development environment. It does not install tools, create package manifests, create lockfiles, configure Docker, create virtual environments, or start services.
+Phase 0 documented the planned development environment. Phase 1 introduced the executable workspace, package manifests, lockfiles, Docker Compose configuration, and service health checks. Phase 2 adds project-model and unit-system dependencies without adding persistence, production CAD, or manufacturing infrastructure.
 
 ## Planned Tool Baseline
 

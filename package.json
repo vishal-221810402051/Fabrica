@@ -16,6 +16,8 @@
     "test": "corepack pnpm --recursive --if-present test && python scripts/run_uv.py run pytest",
     "format": "prettier . --write && python scripts/run_uv.py run ruff format apps/api cad-service",
     "format:check": "prettier . --check && python scripts/run_uv.py run ruff format --check apps/api cad-service",
+    "schema:generate": "corepack pnpm --filter project-model schema:generate",
+    "schema:check": "corepack pnpm --filter project-model schema:check",
     "clean": "powershell -ExecutionPolicy Bypass -File scripts/clean.ps1"
   },
   "devDependencies": {

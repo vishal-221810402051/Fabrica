@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "0.1.0",
+  "id": "project_canonical_units",
+  "name": "Canonical units valid project",
+  "createdAt": "2026-08-05T00:00:00Z",
+  "updatedAt": "2026-08-05T00:00:00Z",
+  "chip": {
+    "id": "chip_canonical_units",
+    "name": "Canonical units chip",
+    "overallDimensions": {
+      "width": { "value": 1, "unit": "mm", "provenance": { "source": "user-entered" } },
+      "height": {
+        "value": 1,
+        "unit": "mm",
+        "provenance": { "source": "user-entered" }
+      },
+      "depth": { "value": 1, "unit": "mm", "provenance": { "source": "user-entered" } }
+    },
+    "layerIds": ["layer_canonical_units"],
+    "materialId": "material_canonical_units",
+    "metadata": {}
+  },
+  "layers": [
+    {
+      "id": "layer_canonical_units",
+      "name": "Layer",
+      "order": 0,
+      "thickness": {
+        "value": 1,
+        "unit": "mm",
+        "provenance": { "source": "user-entered" }
+      },
+      "materialId": "material_canonical_units",
+      "metadata": {}
+    }
+  ],
+  "lanes": [],
+  "components": [],
+  "ports": [],
+  "connections": [],
+  "fluids": [],
+  "materials": [
+    {
+      "id": "material_canonical_units",
+      "name": "Fixture material",
+      "category": "other",
+      "metadata": {}
+    }
+  ],
+  "manufacturingProcesses": [],
+  "validationResults": [],
+  "exportConfiguration": {
+    "requestedFormats": ["json"],
+    "includeValidationResults": true,
+    "metadata": {}
+  },
+  "metadata": {},
+  "extensions": {}
+}

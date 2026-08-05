@@ -37,11 +37,11 @@ export function App() {
   return (
     <main className="app-shell">
       <section className="status-panel" aria-labelledby="status-title">
-        <p className="eyebrow">Phase 1 foundation</p>
+        <p className="eyebrow">Phase 2 foundation</p>
         <h1 id="status-title">Fabricgamma development environment</h1>
         <p className="summary">
-          The web foundation is operational. Product design tools, project models,
-          engineering calculations, GPT integration, and production CAD remain deferred.
+          The web foundation is operational. Product design tools, engineering
+          calculations, GPT integration, and production CAD remain deferred.
         </p>
 
         <div className="service-grid" aria-label="Service health">

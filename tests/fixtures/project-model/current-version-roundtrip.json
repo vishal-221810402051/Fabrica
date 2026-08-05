@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "0.1.0",
+  "id": "project_roundtrip",
+  "name": "Current version roundtrip",
+  "createdAt": "2026-08-05T00:00:00Z",
+  "updatedAt": "2026-08-05T00:00:00Z",
+  "chip": {
+    "id": "chip_roundtrip",
+    "name": "Roundtrip chip",
+    "overallDimensions": {
+      "width": {
+        "value": 10,
+        "unit": "mm",
+        "provenance": { "source": "user-entered" }
+      },
+      "height": {
+        "value": 10,
+        "unit": "mm",
+        "provenance": { "source": "user-entered" }
+      },
+      "depth": { "value": 1, "unit": "mm", "provenance": { "source": "user-entered" } }
+    },
+    "layerIds": ["layer_roundtrip"],
+    "metadata": {}
+  },
+  "layers": [
+    {
+      "id": "layer_roundtrip",
+      "name": "Layer",
+      "order": 0,
+      "thickness": {
+        "value": 1,
+        "unit": "mm",
+        "provenance": { "source": "user-entered" }
+      },
+      "metadata": {}
+    }
+  ],
+  "lanes": [],
+  "components": [],
+  "ports": [],
+  "connections": [],
+  "fluids": [],
+  "materials": [],
+  "manufacturingProcesses": [],
+  "validationResults": [],
+  "exportConfiguration": {
+    "requestedFormats": ["json"],
+    "includeValidationResults": true,
+    "metadata": {}
+  },
+  "metadata": {},
+  "extensions": {}
+}

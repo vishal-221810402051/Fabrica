@@ -2,13 +2,13 @@
 
 ## Goals
 
-Fabricgamma is a planned monorepo for an AI-powered microfluidic chip design platform. The architecture must preserve one authoritative engineering model, deterministic engineering behavior, auditable derived artifacts, and a clear boundary between preview visualization and production CAD.
+Fabricgamma is a monorepo for an AI-powered microfluidic chip design platform. The architecture must preserve one authoritative engineering model, deterministic engineering behavior, auditable derived artifacts, and a clear boundary between preview visualization and production CAD.
 
-Phase 0 defines the architecture foundation only. It does not create executable applications, package manifests, dependency lockfiles, CI workflows, Docker services, database migrations, or CAD implementation.
+Phase 0 defined the architecture foundation. Phase 1 introduced executable workspace scaffolding, health checks, dependency manifests, lockfiles, Docker Compose configuration, and CI. Phase 2 introduces the initial project-model schema and unit system only; database migrations, CAD implementation, calculations, simulations, AI command execution, and manufacturing logic remain deferred.
 
 ## Target Monorepo Structure
 
-The Git repository root is the monorepo root. Future implementation directories will be created directly under the repository root when they have real content.
+The Git repository root is the monorepo root. Implementation directories are created directly under the repository root when they have real content.
 
 ```text
 fabrica/
@@ -59,9 +59,9 @@ Empty future architecture directories are intentionally deferred.
 
 ## Authoritative Project Model
 
-`packages/project-model` will be the engineering source of truth. It must eventually own schema version, stable identifiers, component instances, ports, channels, connectivity, dimensions, constraints, engineering values, value provenance, manufacturing-profile references, material-profile references, layout inputs, validation inputs, calculation inputs, design status, and migration metadata.
+`packages/project-model` is the engineering source of truth for persisted project documents. Phase 2 owns schema version `0.1.0`, stable identifiers, component instances, ports, connections, dimensions, engineering values, value provenance, schema validation, and initial referential integrity checks. Future phases may add constraints, profile references, layout inputs, validation inputs, calculation inputs, design status, and migration metadata.
 
-The canonical interchange representation is planned to be JSON Schema. TypeScript types and Python Pydantic models must be generated from or mechanically checked against the canonical schema. They must not become independently maintained engineering schemas.
+The canonical interchange representation is JSON Schema generated from the Zod 4 model in `packages/project-model`. Python Pydantic consumers are checked against the generated schema and shared fixtures. They must not become independently maintained engineering schemas.
 
 ## Versioning And Migration
 
@@ -92,7 +92,7 @@ Display-unit conversion belongs at presentation and input/output boundaries. Dis
 
 ## Value Provenance
 
-Engineering values must eventually identify whether they are user-entered, calculated, AI-assumed, imported, simulated, calibrated, or defaulted. Unknown values must remain unknown, missing, required, or explicitly defaulted. They must not be silently invented.
+Engineering values identify whether they are user-entered, deterministically calculated, AI-assumed, imported, simulated, system-defaulted, experimentally calibrated, or manufacturer supplied. Unknown values must remain unknown, missing, required, or explicitly defaulted. They must not be silently invented.
 
 ## Deterministic Engines
 
@@ -130,7 +130,7 @@ A design is not Engineering Ready merely because it renders, meshes, or exports.
 
 ## Explicit Exclusions
 
-Phase 0 excludes application code, frontend scaffolding, backend scaffolding, CAD code, package manifests, lockfiles, dependency installation, virtual environments, database work, Docker resources, CI workflows, generated CAD artifacts, commits, pushes, and Phase 1 work.
+Phase 2 excludes product features, engineering calculations, validation-rule engines beyond initial schema and integrity checks, layout engines, persistence, database migrations, GPT integration, production CAD, STEP/STL export, simulation, manufacturing logic, pushes, tags, and Phase 3 work.
 
 ## Deferred Decisions
 

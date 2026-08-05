@@ -2,7 +2,7 @@
 
 Fabricgamma is a planned AI-powered platform for designing microfluidic chips with an authoritative engineering model, deterministic validation, deterministic calculations, and production CAD export.
 
-Current status: Phase 1 monorepo and development-environment foundation. The repository contains a minimal React/Vite web foundation, FastAPI API health service, FastAPI CAD-service boundary placeholder, shared package boundaries, Docker Compose configuration, GitHub Actions baseline, and local-development documentation.
+Current status: Phase 2 project-model and unit-system foundation. The repository contains the Phase 1 monorepo foundation plus the initial versioned project model, normalized unit conversion package, generated JSON Schema artifact, Python consuming models, and shared conformance fixtures.
 
 ## Purpose
 
@@ -87,7 +87,7 @@ fabrica/
 - JavaScript package manager: pnpm.
 - Python dependency and virtual-environment manager: uv.
 
-Phase 1 establishes dependencies and health-check foundations only. It does not implement project schemas, engineering calculations, validation rules, persistence, GPT integration, production CAD, STEP/STL export, or manufacturing logic.
+Phase 2 establishes the initial project schema and unit normalization only. It does not implement engineering calculations, manufacturing rules, persistence, GPT integration, production CAD, STEP/STL export, simulation, or Engineering Ready workflows.
 
 ## Development
 
@@ -103,6 +103,7 @@ corepack pnpm lint
 corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm build
+corepack pnpm schema:check
 ```
 
 Health endpoints:
@@ -114,6 +115,8 @@ Health endpoints:
 
 - [System architecture](docs/architecture/system-architecture.md)
 - [Data flow](docs/architecture/data-flow.md)
+- [Project model](docs/architecture/project-model.md)
+- [Unit system](docs/architecture/unit-system.md)
 - [Architecture decisions](docs/architecture/decisions/README.md)
 - [Platform architecture ADR](docs/architecture/decisions/ADR-0001-platform-architecture.md)
 - [Development standards](docs/development/standards.md)

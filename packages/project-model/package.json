@@ -2,7 +2,7 @@
   "name": "project-model",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -12,8 +12,15 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "corepack pnpm --filter units build && tsc -p tsconfig.json",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "corepack pnpm --filter units build && tsc -p tsconfig.json --noEmit",
+    "test": "corepack pnpm --filter units build && vitest run src",
+    "schema:generate": "corepack pnpm --filter project-model build && node scripts/generate-schema.mjs",
+    "schema:check": "corepack pnpm --filter project-model build && node scripts/check-schema.mjs"
+  },
+  "dependencies": {
+    "units": "workspace:*",
+    "zod": "^4.4.3"
   }
 }

@@ -40,6 +40,9 @@ jobs:
       - name: Build
         run: corepack pnpm --recursive --if-present build
 
+      - name: Check generated project schema
+        run: corepack pnpm schema:check
+
   python:
     name: Python services
     runs-on: ubuntu-latest

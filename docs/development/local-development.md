@@ -1,6 +1,6 @@
 # Local Development
 
-Phase 1 establishes the reproducible development foundation for Fabricgamma. It does not implement microfluidic schemas, engineering calculations, validation rules, production CAD, persistence, authentication, GPT integration, or simulation.
+Phase 1 established the reproducible development foundation for Fabricgamma. Phase 2 adds the initial project-model schema and unit system. Engineering calculations, validation-rule engines beyond schema/integrity checks, production CAD, persistence, authentication, GPT integration, and simulation remain deferred.
 
 ## Prerequisites
 
@@ -70,13 +70,14 @@ corepack pnpm lint
 corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm build
+corepack pnpm schema:check
 ```
 
 Python checks are invoked through uv by the root scripts.
 
 ## Docker
 
-`compose.yaml` defines `web`, `api`, `cad-service`, and `postgres`. PostgreSQL exists as infrastructure only; no persistence models, migrations, or database business logic exist in Phase 1.
+`compose.yaml` defines `web`, `api`, `cad-service`, and `postgres`. PostgreSQL exists as infrastructure only; no persistence models, migrations, or database business logic exist in Phase 2.
 
 Configuration validation:
 
@@ -88,4 +89,4 @@ Runtime validation with `docker compose up` requires the Docker daemon. During P
 
 ## Deferred Functionality
 
-Phase 1 intentionally excludes project schemas, microfluidic components, unit conversion, calculations, validation rules, layout algorithms, 3D chip geometry, GPT integration, production CAD, STEP/STL export, authentication, persistence, database business models, and simulation.
+Phase 2 intentionally excludes editor workflows, detailed component-library behavior, calculations, validation-rule engines beyond schema/integrity checks, layout algorithms, 3D chip geometry, GPT integration, production CAD, STEP/STL export, authentication, persistence, database business models, and simulation.
