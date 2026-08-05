@@ -1,6 +1,6 @@
 # Local Development
 
-Phase 1 established the reproducible development foundation for Fabricgamma. Phase 2 adds the initial project-model schema and unit system. Engineering calculations, validation-rule engines beyond schema/integrity checks, production CAD, persistence, authentication, GPT integration, and simulation remain deferred.
+Phase 1 established the reproducible development foundation for Fabricgamma. Phase 2 adds the initial project-model schema and unit system. Phase 3 adds browser-local web project management with IndexedDB, import/export, autosave, recovery, recent projects, and undo/redo. Engineering calculations, validation-rule engines beyond schema/integrity checks, production CAD, backend persistence, authentication, GPT integration, and simulation remain deferred.
 
 ## Prerequisites
 
@@ -62,6 +62,10 @@ Both return deterministic Phase 1 health payloads with `service`, `status`, and 
 
 The web app defaults to `VITE_API_BASE_URL=http://127.0.0.1:8000` and `VITE_CAD_BASE_URL=http://127.0.0.1:8001`. The API and CAD service accept browser health requests from both `http://localhost:5173` and `http://127.0.0.1:5173` by default through comma-separated `API_ALLOWED_ORIGINS` and `CAD_ALLOWED_ORIGINS` values.
 
+The web app uses browser IndexedDB database `fabricgamma` for local project
+records. This data is local to the browser origin and is not sent to the API.
+Portable project files are exported explicitly as `.fabricgamma.json`.
+
 ## Checks
 
 ```powershell
@@ -89,4 +93,4 @@ Runtime validation with `docker compose up` requires the Docker daemon. During P
 
 ## Deferred Functionality
 
-Phase 2 intentionally excludes editor workflows, detailed component-library behavior, calculations, validation-rule engines beyond schema/integrity checks, layout algorithms, 3D chip geometry, GPT integration, production CAD, STEP/STL export, authentication, persistence, database business models, and simulation.
+Phase 3 intentionally excludes editor workflows, detailed component-library behavior, calculations, validation-rule engines beyond schema/integrity checks, layout algorithms, 3D chip geometry, GPT integration, production CAD, STEP/STL export, authentication, backend persistence, database business models, cloud synchronization, and simulation.

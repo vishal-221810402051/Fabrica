@@ -16,12 +16,15 @@ body {
 }
 
 .app-shell {
-  align-items: center;
+  align-items: stretch;
   display: flex;
+  flex-direction: column;
+  gap: 32px;
   min-height: 100vh;
   padding: 32px;
 }
 
+.project-panel,
 .status-panel {
   margin: 0 auto;
   max-width: 920px;
@@ -56,6 +59,134 @@ h1 {
   gap: 16px;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   margin-top: 32px;
+}
+
+.project-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 24px 0;
+}
+
+button {
+  background: #ffffff;
+  border: 1px solid #c9d2df;
+  border-radius: 6px;
+  color: #1f2937;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+button:hover:not(:disabled) {
+  border-color: #0f766e;
+  color: #0f766e;
+}
+
+button:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.project-status {
+  background: #ffffff;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  padding: 20px;
+}
+
+.project-status div {
+  min-width: 0;
+}
+
+.label {
+  color: #6b7280;
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.project-status strong {
+  overflow-wrap: anywhere;
+}
+
+.notice,
+.warning,
+.error {
+  border-radius: 8px;
+  font-weight: 700;
+  margin: 16px 0 0;
+  padding: 12px 14px;
+}
+
+.notice {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.recent-projects {
+  margin-top: 24px;
+}
+
+.recent-projects h2 {
+  font-size: 1.1rem;
+}
+
+.recent-list {
+  display: grid;
+  gap: 10px;
+}
+
+.recent-row {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px;
+}
+
+.recent-row p,
+.muted {
+  color: #6b7280;
+  margin: 4px 0 0;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.visually-hidden {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 .service-card {
@@ -93,7 +224,7 @@ h1 {
   color: #3730a3;
 }
 
-.badge-available {
+.badge-healthy {
   background: #dcfce7;
   color: #166534;
 }
@@ -101,4 +232,15 @@ h1 {
 .badge-unreachable {
   background: #fee2e2;
   color: #991b1b;
+}
+
+@media (max-width: 680px) {
+  .app-shell {
+    padding: 20px;
+  }
+
+  .recent-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }

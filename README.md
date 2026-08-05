@@ -2,7 +2,7 @@
 
 Fabricgamma is a planned AI-powered platform for designing microfluidic chips with an authoritative engineering model, deterministic validation, deterministic calculations, and production CAD export.
 
-Current status: Phase 2 project-model and unit-system foundation. The repository contains the Phase 1 monorepo foundation plus the initial versioned project model, normalized unit conversion package, generated JSON Schema artifact, Python consuming models, and shared conformance fixtures.
+Current status: Phase 3 browser-local project management foundation. The repository contains the Phase 1 monorepo foundation, the Phase 2 versioned project model and unit system, and Phase 3 web infrastructure for local project state, IndexedDB persistence, JSON import/export, autosave, recovery, recent projects, and undo/redo.
 
 ## Purpose
 
@@ -87,7 +87,7 @@ fabrica/
 - JavaScript package manager: pnpm.
 - Python dependency and virtual-environment manager: uv.
 
-Phase 2 establishes the initial project schema and unit normalization only. It does not implement engineering calculations, manufacturing rules, persistence, GPT integration, production CAD, STEP/STL export, simulation, or Engineering Ready workflows.
+Phase 3 adds browser-local persistence only. It does not implement backend persistence, engineering calculations, manufacturing rules, GPT integration, production CAD, STEP/STL export, simulation, or Engineering Ready workflows.
 
 ## Development
 
@@ -116,6 +116,7 @@ Health endpoints:
 - [System architecture](docs/architecture/system-architecture.md)
 - [Data flow](docs/architecture/data-flow.md)
 - [Project model](docs/architecture/project-model.md)
+- [Project state](docs/architecture/project-state.md)
 - [Unit system](docs/architecture/unit-system.md)
 - [Architecture decisions](docs/architecture/decisions/README.md)
 - [Platform architecture ADR](docs/architecture/decisions/ADR-0001-platform-architecture.md)

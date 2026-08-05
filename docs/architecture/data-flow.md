@@ -26,6 +26,12 @@ User input or import
 
 The project model is the engineering source of truth throughout this flow. Calculated values, validation reports, layout results, preview meshes, CAD bodies, STEP exports, STL exports, simulation results, and rendered views are derived data.
 
+Phase 3 browser-local project management stores a validated project-model
+document inside an IndexedDB wrapper. The wrapper contains local metadata such
+as local record ID, revision, save timestamps, source, autosave state, and
+recovery state. That wrapper is not an engineering schema and is not exported as
+portable project JSON.
+
 ## AI Flow
 
 ```text

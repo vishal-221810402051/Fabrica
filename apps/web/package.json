@@ -5,14 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
-    "build": "tsc -p tsconfig.json && vite build --configLoader runner",
+    "build": "corepack pnpm --filter project-model build && tsc -p tsconfig.json && vite build --configLoader runner",
     "lint": "eslint src --ext .ts,.tsx",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --configLoader runner"
+    "typecheck": "corepack pnpm --filter project-model build && tsc -p tsconfig.json --noEmit",
+    "test": "corepack pnpm --filter project-model build && vitest run --configLoader runner"
   },
   "dependencies": {
+    "idb": "8.0.3",
+    "project-model": "workspace:*",
     "react": "^19.2.1",
-    "react-dom": "^19.2.1"
+    "react-dom": "^19.2.1",
+    "zustand": "5.0.14"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "fake-indexeddb": "6.2.5"
+  }
 }

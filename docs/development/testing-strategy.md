@@ -1,9 +1,9 @@
 # Testing Strategy
 
-Phase 2 adds the first project-model, unit-system, generated-schema, and
-cross-language conformance checks. Later product workflows, engineering
-calculations, CAD, persistence, and migration tests remain deferred until those
-capabilities exist.
+Phase 3 adds browser-local project state, IndexedDB persistence, import/export,
+autosave, recovery, recent-project, multi-tab warning, and undo/redo tests on
+top of the Phase 2 project-model, unit-system, generated-schema, and
+cross-language conformance checks.
 
 ## Objectives
 
@@ -51,8 +51,9 @@ corepack pnpm schema:check
 
 These root scripts invoke the configured JavaScript and Python checks. They now
 cover the health-check foundations, package boundaries, unit conversions,
-project-model runtime validation, JSON Schema generation, and Python parity
-tests.
+project-model runtime validation, JSON Schema generation, Python parity tests,
+and browser-local project-management behavior. IndexedDB tests use
+`fake-indexeddb` under Vitest/jsdom and do not touch real browser data.
 
 ## Fixture Strategy
 

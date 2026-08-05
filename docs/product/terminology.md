@@ -20,6 +20,22 @@ An explicit transformation from one project-model schema version to another. Bac
 
 A specific saved state of a project model used to trace derived artifacts and audit records.
 
+## Local Project Record
+
+A browser-local IndexedDB wrapper around one authoritative project model. It
+contains local record metadata such as local project ID, revision, save time,
+source, autosave state, and recovery state. It is not an engineering schema.
+
+## Local Save
+
+A write to browser-local IndexedDB storage. Local save is not cloud sync,
+server save, upload, collaboration, or audit persistence.
+
+## Project Export
+
+An explicit portable JSON download containing only canonical project-model data.
+Browser-local wrapper metadata, UI state, and history are excluded.
+
 ## Stable Identifier
 
 A model-owned identifier for projects, components, ports, channels, constraints, profiles, derived artifacts, or validation findings. Visual rendering must not replace stable identifiers.
