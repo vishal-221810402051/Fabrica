@@ -14,8 +14,13 @@ Phase 3 adds browser-local project management around the Phase 2 project model:
 IndexedDB storage is local browser persistence only. It is not cloud sync,
 server save, authentication, collaboration, or backend persistence.
 
-The app still does not contain a node editor, component palette, 2D layout, 3D
-viewer, engineering calculations, GPT integration, or CAD controls.
+Phase 4 adds a read-only component-definition catalogue sourced from
+`microfluidic-components`. It supports category filtering and definition detail
+review without creating components or mutating the active project.
+
+The app still does not contain a node editor, component insertion palette,
+drag-and-drop, connection drawing, 2D layout, 3D viewer, engineering
+calculations, GPT integration, or CAD controls.
 
 ## Commands
 

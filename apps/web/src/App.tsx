@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { createAutosaveController } from "./autosave/autosaveController";
+import { ComponentCatalogue } from "./components/component-catalogue/ComponentCatalogue";
 import { ProjectStatus } from "./components/project-management/ProjectStatus";
 import { ProjectToolbar } from "./components/project-management/ProjectToolbar";
 import { RecentProjects } from "./components/project-management/RecentProjects";
@@ -412,6 +413,7 @@ export function App() {
           ))}
         </div>
       </section>
+      <ComponentCatalogue />
     </main>
   );
 }

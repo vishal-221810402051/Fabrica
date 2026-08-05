@@ -1,5 +1,10 @@
-export const packageIdentity = {
-  name: "microfluidic-components",
-  phase: "Phase 1 boundary",
-  responsibility: "future engineering component definitions",
-} as const;
+export * from "./compatibility";
+export * from "./duplication";
+export * from "./errors";
+export * from "./factory";
+export * from "./icons";
+export * from "./parameters";
+export * from "./ports";
+export * from "./policies";
+export * from "./registry";
+export * from "./types";

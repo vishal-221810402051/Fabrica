@@ -44,9 +44,39 @@ A model-owned identifier for projects, components, ports, channels, constraints,
 
 A model element representing a microfluidic design feature such as a channel, reservoir, chamber, mixer, valve, membrane, vent, filter, optical cell, or electrode region.
 
+## Component Definition
+
+A reusable, serializable catalogue description for a component type. A
+definition contains parameters, port templates, policies, geometry hints,
+manufacturing metadata, and an icon descriptor. It is not a project instance,
+editor node, CAD body, or executable plugin.
+
+## Component Instance
+
+A project-model `Component` created from a definition or authored directly by
+approved commands. Definition identity may be persisted in a namespaced
+extension, while first-class project-model fields remain authoritative.
+
 ## Port
 
 A defined connection point on a component.
+
+## Port Template
+
+A declarative definition-level connection point describing direction, medium,
+role, multiplicity, anchor, orientation, and same-component policy. Factory
+created ports persist template metadata, but port templates are not CAD
+coordinates.
+
+## Port Medium
+
+The physical communication medium of a port, such as liquid, gas,
+pneumatic-control, electrical, optical, or generic.
+
+## Port Role
+
+The functional purpose of a port, such as sample, reagent, buffer, waste, vent,
+control, detection, or generic.
 
 ## Channel
 
@@ -85,6 +115,12 @@ A deterministic engineering computation with defined inputs, units, assumptions,
 ## Validation Rule
 
 A deterministic rule that checks whether model data satisfies schema, unit, semantic, connectivity, geometric, manufacturing-profile, material-profile, CAD, export, or engineering-readiness requirements.
+
+## Local Port Compatibility
+
+A deterministic pairwise preflight check for a proposed connection. It can
+report direction, medium, role, layer, lane, duplicate, ownership, and
+multiplicity issues. It is not whole-project topology validation.
 
 ## Validation Finding
 

@@ -94,4 +94,34 @@ describe("App", () => {
     expect(window.confirm).toHaveBeenCalledOnce();
     expect(screen.getByText("Keep me")).toBeInTheDocument();
   });
+
+  it("renders a read-only component catalogue without mutating the project", async () => {
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("Untitled Project")).toBeInTheDocument();
+    });
+    const projectId = projectStore.getState().project?.id;
+
+    expect(screen.getByText("Component definitions")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Rectangular channelchannel.rectangular",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Component category"), {
+      target: { value: "control" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Normally closed valvevalve.normally-closed",
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Normally closed valve" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /create/i })).not.toBeInTheDocument();
+    expect(projectStore.getState().project?.id).toBe(projectId);
+  });
 });

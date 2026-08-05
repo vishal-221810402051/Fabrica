@@ -32,6 +32,12 @@ as local record ID, revision, save timestamps, source, autosave state, and
 recovery state. That wrapper is not an engineering schema and is not exported as
 portable project JSON.
 
+Phase 4 component factories consume frozen component definitions and produce
+project-model components plus owned ports. The factory persists definition
+identity and port-template metadata in namespaced extensions, but it does not
+insert objects into a project, create connections, mutate browser-local storage,
+or produce CAD artifacts.
+
 ## AI Flow
 
 ```text
@@ -67,6 +73,12 @@ Before a command mutates a project, the system must apply the relevant gates:
 Future errors must be structured and actionable. Engineering diagnostics should eventually include a stable code, severity, affected model identifier, human-readable message, machine-readable details, source engine, and suggested remediation where appropriate.
 
 Validation failures must not be hidden behind generic success responses. Failed validation produces findings that reference the affected model identifiers and explain whether the failure is schema-level, unit-level, semantic, connectivity, geometric, manufacturing-profile, material-profile, CAD, export, or engineering-readiness related.
+
+Phase 4 port compatibility is a local preflight result, not whole-project
+validation. It checks ordered ports, media, roles, layers, lanes, duplicate
+connections, and multiplicity for a proposed pair. Missing required ports,
+network topology, routing reachability, and process-profile manufacturing rules
+remain future validation responsibilities.
 
 ## Visualization Flow
 

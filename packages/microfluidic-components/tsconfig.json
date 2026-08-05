@@ -1,11 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node10",
     "declaration": true,
-    "emitDeclarationOnly": true,
+    "allowImportingTsExtensions": false,
     "noEmit": false,
     "outDir": "dist",
     "rootDir": "src"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "dist"]
 }

@@ -1,9 +1,9 @@
 # Testing Strategy
 
-Phase 3 adds browser-local project state, IndexedDB persistence, import/export,
-autosave, recovery, recent-project, multi-tab warning, and undo/redo tests on
-top of the Phase 2 project-model, unit-system, generated-schema, and
-cross-language conformance checks.
+Phase 4 adds component-registry, factory, duplication, local port-compatibility,
+and read-only catalogue tests on top of the Phase 3 browser-local project state,
+IndexedDB persistence, import/export, autosave, recovery, recent-project,
+multi-tab warning, and undo/redo tests.
 
 ## Objectives
 
@@ -52,8 +52,22 @@ corepack pnpm schema:check
 These root scripts invoke the configured JavaScript and Python checks. They now
 cover the health-check foundations, package boundaries, unit conversions,
 project-model runtime validation, JSON Schema generation, Python parity tests,
-and browser-local project-management behavior. IndexedDB tests use
-`fake-indexeddb` under Vitest/jsdom and do not touch real browser data.
+browser-local project-management behavior, component-definition registry checks,
+component factory behavior, duplication behavior, and local port compatibility.
+IndexedDB tests use `fake-indexeddb` under Vitest/jsdom and do not touch real
+browser data.
+
+## Phase 4 Focus
+
+`packages/microfluidic-components` tests must verify registry immutability,
+30 built-in definitions, parameter defaults and overrides, canonical unit
+normalization, persisted definition identity, persisted port-template metadata,
+local direction/medium/role/layer/lane/multiplicity compatibility, and
+component-level duplication.
+
+`apps/web` tests must keep the Phase 3 project-management controls and health
+cards covered while verifying that the catalogue is read-only and does not
+mutate the active project.
 
 ## Fixture Strategy
 

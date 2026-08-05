@@ -9,6 +9,9 @@ export default defineConfig({
       "project-model": fileURLToPath(
         new URL("../../packages/project-model/src/index.ts", import.meta.url),
       ),
+      "microfluidic-components": fileURLToPath(
+        new URL("../../packages/microfluidic-components/src/index.ts", import.meta.url),
+      ),
       units: fileURLToPath(
         new URL("../../packages/units/src/index.ts", import.meta.url),
       ),

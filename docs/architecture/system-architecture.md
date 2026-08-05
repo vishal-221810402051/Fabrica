@@ -4,7 +4,7 @@
 
 Fabricgamma is a monorepo for an AI-powered microfluidic chip design platform. The architecture must preserve one authoritative engineering model, deterministic engineering behavior, auditable derived artifacts, and a clear boundary between preview visualization and production CAD.
 
-Phase 0 defined the architecture foundation. Phase 1 introduced executable workspace scaffolding, health checks, dependency manifests, lockfiles, Docker Compose configuration, and CI. Phase 2 introduces the initial project-model schema and unit system only; database migrations, CAD implementation, calculations, simulations, AI command execution, and manufacturing logic remain deferred.
+Phase 0 defined the architecture foundation. Phase 1 introduced executable workspace scaffolding, health checks, dependency manifests, lockfiles, Docker Compose configuration, and CI. Phase 2 introduced the initial project-model schema and unit system. Phase 3 introduced browser-local project management. Phase 4 introduces reusable component definitions, deterministic component factories, component duplication, local port compatibility, and a read-only web catalogue. Database migrations, CAD implementation, calculations, simulations, AI command execution, whole-project validation, and manufacturing logic remain deferred.
 
 ## Target Monorepo Structure
 
@@ -49,7 +49,7 @@ Empty future architecture directories are intentionally deferred.
 | `packages/validation` | Structured validation rules, stable finding codes, severities, engineering-readiness checks | Generic success responses that hide validation failures |
 | `packages/layout-engine` | Deterministic layout derivation independent of React and React Flow | Engineering connectivity authority through UI positions |
 | `packages/geometry-core` | Language-neutral geometry primitives, transforms, coordinate conventions, preview-interchange contracts | Production CAD authority or second project model |
-| `packages/microfluidic-components` | Engineering component definitions referencing schemas and profiles | Reusable visual UI components or invented manufacturing limits |
+| `packages/microfluidic-components` | Frozen engineering component definitions, deterministic factories, component duplication, local port compatibility, React-free icon descriptors | Reusable visual UI components, executable plugins, topology validation, CAD, or invented manufacturing limits |
 | `packages/ui` | Reusable visual UI components | Engineering calculations, schemas, CAD, or manufacturing rules |
 | `cad-service` | CadQuery B-representation construction, OpenCascade geometry, STEP/STL export, CAD diagnostics | Executing uncontrolled GPT-generated CAD code |
 | `tests` | Shared fixtures, integration tests, e2e tests, cross-language conformance tests | Production source ownership |
@@ -130,7 +130,7 @@ A design is not Engineering Ready merely because it renders, meshes, or exports.
 
 ## Explicit Exclusions
 
-Phase 2 excludes product features, engineering calculations, validation-rule engines beyond initial schema and integrity checks, layout engines, persistence, database migrations, GPT integration, production CAD, STEP/STL export, simulation, manufacturing logic, pushes, tags, and Phase 3 work.
+Phase 4 excludes component insertion workflows, drag-and-drop palettes, connection drawing, whole-project topology validation, engineering calculations, process-profile DFM checks, layout engines, backend persistence, database migrations, GPT integration, production CAD, STEP/STL export, simulation, manufacturing logic, pushes, tags, and Phase 5 work.
 
 ## Deferred Decisions
 
