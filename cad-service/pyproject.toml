@@ -1,0 +1,18 @@
+[project]
+name = "fabrica-cad"
+version = "0.1.0"
+description = "Fabricgamma CAD service boundary placeholder."
+requires-python = "==3.12.*"
+dependencies = [
+  "fastapi>=0.124.0",
+  "pydantic-settings>=2.12.0",
+  "uvicorn[standard]>=0.38.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "fabrica_cad"
+module-root = "src"

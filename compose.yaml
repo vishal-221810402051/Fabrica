@@ -1,0 +1,80 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    command: corepack pnpm --filter @fabrica/web dev -- --host 0.0.0.0 --port 5173
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8000}
+      VITE_CAD_BASE_URL: ${VITE_CAD_BASE_URL:-http://127.0.0.1:8001}
+    ports:
+      - "${WEB_PORT:-5173}:5173"
+    depends_on:
+      api:
+        condition: service_healthy
+      cad-service:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      API_ALLOWED_ORIGINS: ${API_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health').read()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  cad-service:
+    build:
+      context: .
+      dockerfile: cad-service/Dockerfile
+    environment:
+      CAD_ALLOWED_ORIGINS: ${CAD_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${CAD_PORT:-8001}:8001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health').read()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fabrica_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-fabrica_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fabrica_dev_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres-data:

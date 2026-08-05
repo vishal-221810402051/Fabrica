@@ -32,6 +32,8 @@ Unsupported engineering, manufacturing, pressure, optical, reaction, tolerance, 
 
 Each implementation phase must define the checks that apply to that phase. Future executable phases must include appropriate unit, integration, contract, browser, CAD, migration, and cross-language conformance tests. Validation evidence must be reviewed before a commit prompt is issued.
 
+Phase 1 workspace checks are documented in [local development](docs/development/local-development.md). Use the root scripts for formatting, linting, type checking, tests, and builds after dependencies are installed.
+
 ## Architecture Decisions
 
 Material architecture changes require an ADR under [docs/architecture/decisions](docs/architecture/decisions/README.md). Superseding decisions must link to the ADR they replace and explain compatibility or migration impact.

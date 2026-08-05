@@ -1,0 +1,39 @@
+{
+  "name": "fabrica",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": "24.x",
+    "pnpm": "11.20.0"
+  },
+  "scripts": {
+    "dev": "powershell -ExecutionPolicy Bypass -File scripts/dev.ps1",
+    "build": "corepack pnpm --recursive --if-present build",
+    "lint": "corepack pnpm --recursive --if-present lint && python scripts/run_uv.py run ruff check apps/api cad-service",
+    "typecheck": "corepack pnpm --recursive --if-present typecheck && python scripts/run_uv.py run pyright apps/api/src cad-service/src",
+    "test": "corepack pnpm --recursive --if-present test && python scripts/run_uv.py run pytest",
+    "format": "prettier . --write && python scripts/run_uv.py run ruff format apps/api cad-service",
+    "format:check": "prettier . --check && python scripts/run_uv.py run ruff format --check apps/api cad-service",
+    "clean": "powershell -ExecutionPolicy Bypass -File scripts/clean.ps1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "jsdom": "^27.2.0",
+    "prettier": "^3.7.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.1",
+    "vite": "^7.2.4",
+    "vitest": "^4.0.14"
+  }
+}

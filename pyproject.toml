@@ -1,0 +1,52 @@
+[project]
+name = "fabrica"
+version = "0.1.0"
+description = "Monorepo development workspace for the Fabricgamma platform."
+requires-python = "==3.12.*"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "fabrica-api",
+  "fabrica-cad",
+  "httpx>=0.28.1",
+  "pyright>=1.1.407",
+  "pytest>=9.0.1",
+  "ruff>=0.14.6",
+]
+
+[tool.uv.workspace]
+members = [
+  "apps/api",
+  "cad-service",
+]
+
+[tool.uv.sources]
+fabrica-api = { workspace = true }
+fabrica-cad = { workspace = true }
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["apps/api/src", "cad-service/src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = [
+  "apps/api/tests",
+  "cad-service/tests",
+  "tests/scripts",
+]
+addopts = "-q"
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+include = [
+  "apps/api/src",
+  "cad-service/src",
+]
+venvPath = "."
+venv = ".venv"

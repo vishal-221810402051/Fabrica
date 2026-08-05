@@ -5,9 +5,9 @@ Phase 0 documents the planned development environment. It does not install tools
 ## Planned Tool Baseline
 
 - Node.js: 24.
-- JavaScript package manager: pnpm.
+- JavaScript package manager: pnpm 11.20.0 through Corepack.
 - Python: 3.12.
-- Python dependency and virtual-environment manager: uv.
+- Python dependency and virtual-environment manager: uv 0.12.1.
 - Python type checker: Pyright.
 - Python formatter and linter: Ruff.
 - Frontend correctness and formatting: ESLint and Prettier.
@@ -34,7 +34,9 @@ Secrets must come from local secret storage, deployment secret stores, or GitHub
 
 Docker Compose should be introduced when database or multi-service integration requires it. PostgreSQL is the approved persistence database, but it should be introduced only when the persistence phase begins.
 
-Phase 0 creates no Dockerfile, Compose file, SQLAlchemy configuration, Alembic configuration, migration, local database, or container resource.
+Phase 1 introduces Docker Compose and a PostgreSQL development service as infrastructure only. The application still contains no SQLAlchemy configuration, Alembic configuration, migration, persistence model, or database business logic.
+
+During Phase 1 diagnosis, Docker CLI and Compose were installed locally, but the Docker daemon was unavailable. Runtime Docker validation therefore depends on a running daemon or CI.
 
 ## CAD Dependency Isolation
 
@@ -50,4 +52,4 @@ No committed application configuration should depend on machine-specific absolut
 
 ## Reproducibility And Lockfiles
 
-Lockfiles should be committed once executable workspaces exist and package managers are approved in implementation scope. Until then, Phase 0 only documents the planned package-manager choices.
+Phase 1 commits `pnpm-lock.yaml` and `uv.lock` after executable workspace dependencies are introduced. CI must use lockfile-enforced install/sync commands.

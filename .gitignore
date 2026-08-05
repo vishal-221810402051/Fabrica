@@ -48,6 +48,7 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .pyright/
+.uv-cache/
 .coverage
 .coverage.*
 htmlcov/

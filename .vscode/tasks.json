@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Phase 1: install JavaScript dependencies",
+      "type": "shell",
+      "command": "corepack pnpm install",
+      "problemMatcher": []
+    },
+    {
+      "label": "Phase 1: sync Python dependencies",
+      "type": "shell",
+      "command": "python scripts/run_uv.py sync",
+      "problemMatcher": []
+    },
+    {
+      "label": "Phase 1: check all",
+      "type": "shell",
+      "command": "corepack pnpm test",
+      "problemMatcher": []
+    }
+  ]
+}

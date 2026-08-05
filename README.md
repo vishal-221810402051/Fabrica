@@ -2,7 +2,7 @@
 
 Fabricgamma is a planned AI-powered platform for designing microfluidic chips with an authoritative engineering model, deterministic validation, deterministic calculations, and production CAD export.
 
-Current status: Phase 0 architecture foundation. This repository contains governance and architecture documentation only. No executable frontend, backend, CAD service, database, CI workflow, or application startup command exists yet.
+Current status: Phase 1 monorepo and development-environment foundation. The repository contains a minimal React/Vite web foundation, FastAPI API health service, FastAPI CAD-service boundary placeholder, shared package boundaries, Docker Compose configuration, GitHub Actions baseline, and local-development documentation.
 
 ## Purpose
 
@@ -87,7 +87,28 @@ fabrica/
 - JavaScript package manager: pnpm.
 - Python dependency and virtual-environment manager: uv.
 
-No dependencies are installed or configured in Phase 0.
+Phase 1 establishes dependencies and health-check foundations only. It does not implement project schemas, engineering calculations, validation rules, persistence, GPT integration, production CAD, STEP/STL export, or manufacturing logic.
+
+## Development
+
+See [local development](docs/development/local-development.md) for setup and command details.
+
+Common checks:
+
+```powershell
+corepack pnpm install
+python -m uv sync
+corepack pnpm format:check
+corepack pnpm lint
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm build
+```
+
+Health endpoints:
+
+- API: `http://127.0.0.1:8000/health`
+- CAD service: `http://127.0.0.1:8001/health`
 
 ## Documentation
 
@@ -99,5 +120,6 @@ No dependencies are installed or configured in Phase 0.
 - [Testing strategy](docs/development/testing-strategy.md)
 - [Git strategy](docs/development/git-strategy.md)
 - [Environment strategy](docs/development/environment-strategy.md)
+- [Local development](docs/development/local-development.md)
 - [Product terminology](docs/product/terminology.md)
 - [Contribution guide](CONTRIBUTING.md)

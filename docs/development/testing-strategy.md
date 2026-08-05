@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Phase 0 defines the testing strategy only. Executable commands will be added when executable workspaces exist.
+Phase 1 adds the first executable workspace checks. Later product, engineering, CAD, persistence, and migration tests remain deferred until those capabilities exist.
 
 ## Objectives
 
@@ -34,6 +34,18 @@ Testing must protect the authoritative project model, cross-language contract co
 - Pytest: Python API, CAD, integration, and migration tests.
 
 ESLint, Prettier, Ruff, Pyright, and the TypeScript compiler support quality checks but are not substitutes for behavioral tests.
+
+## Phase 1 Commands
+
+```powershell
+corepack pnpm format:check
+corepack pnpm lint
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm build
+```
+
+These root scripts invoke the configured JavaScript and Python checks. They validate the health-check foundations and package boundaries only.
 
 ## Fixture Strategy
 
