@@ -1,6 +1,6 @@
 # Local Development
 
-Phase 1 established the reproducible development foundation for Fabricgamma. Phase 2 adds the initial project-model schema and unit system. Phase 3 adds browser-local web project management with IndexedDB, import/export, autosave, recovery, recent projects, and undo/redo. Phase 4 adds reusable component definitions, deterministic component factories, local port compatibility checks, and a read-only web catalogue. Engineering calculations, whole-project validation-rule engines, production CAD, backend persistence, authentication, GPT integration, and simulation remain deferred.
+Phase 1 established the reproducible development foundation for Fabricgamma. Phase 2 adds the initial project-model schema and unit system. Phase 3 adds browser-local web project management with IndexedDB, import/export, autosave, recovery, recent projects, and undo/redo. Phase 4 adds reusable component definitions and local port compatibility checks. Phase 5 adds a React Flow visual editor for component placement, movement, local connections, and basic property editing. Engineering calculations, whole-project validation-rule engines, production CAD, backend persistence, authentication, GPT integration, and simulation remain deferred.
 
 ## Prerequisites
 
@@ -86,6 +86,10 @@ corepack pnpm --filter microfluidic-components test
 corepack pnpm --filter @fabrica/web test
 ```
 
+The web editor uses `@xyflow/react@12.11.2`. Manual browser validation should
+confirm click-to-add, movement, connection feedback, property editing, undo,
+redo, export, and import because jsdom tests do not prove pointer ergonomics.
+
 ## Docker
 
 `compose.yaml` defines `web`, `api`, `cad-service`, and `postgres`. PostgreSQL exists as infrastructure only; no persistence models, migrations, or database business logic exist in Phase 4.
@@ -100,4 +104,4 @@ Runtime validation with `docker compose up` requires the Docker daemon. During P
 
 ## Deferred Functionality
 
-Phase 4 intentionally excludes editor workflows, component insertion, drag-and-drop palettes, connection drawing, whole-project topology validation, calculations, process-profile DFM checks, layout algorithms, 3D chip geometry, GPT integration, production CAD, STEP/STL export, authentication, backend persistence, database business models, cloud synchronization, and simulation.
+Phase 5 intentionally excludes drag-from-palette, automatic routing, automatic layout, whole-project topology validation, calculations, process-profile DFM checks, 3D chip geometry, GPT integration, production CAD, STEP/STL export, authentication, backend persistence, database business models, cloud synchronization, and simulation.

@@ -3,6 +3,7 @@ export * from "./duplication";
 export * from "./errors";
 export * from "./factory";
 export * from "./icons";
+export * from "./instance";
 export * from "./parameters";
 export * from "./ports";
 export * from "./policies";

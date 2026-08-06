@@ -2,7 +2,28 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
+import { loadProjectRecord } from "./persistence/projectStorage";
 import { projectStore, resetProjectStoreForTests } from "./state/projectStore";
+
+class ThrowingBroadcastChannel {
+  readonly name: string;
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  postMessages = 0;
+  closed = false;
+
+  constructor(name: string) {
+    this.name = name;
+  }
+
+  postMessage() {
+    this.postMessages += 1;
+    throw new DOMException("Channel is closed", "InvalidStateError");
+  }
+
+  close() {
+    this.closed = true;
+  }
+}
 
 describe("App", () => {
   afterEach(() => {
@@ -95,21 +116,24 @@ describe("App", () => {
     expect(screen.getByText("Keep me")).toBeInTheDocument();
   });
 
-  it("renders a read-only component catalogue without mutating the project", async () => {
+  it("renders the Phase 5 editor and adds a component through the palette", async () => {
     render(<App />);
     await waitFor(() => {
       expect(screen.getByText("Untitled Project")).toBeInTheDocument();
     });
     const projectId = projectStore.getState().project?.id;
+    const revision = projectStore.getState().metadata?.revision;
 
-    expect(screen.getByText("Component definitions")).toBeInTheDocument();
+    expect(screen.getByText("Microfluidic design editor")).toBeInTheDocument();
+    expect(screen.getByText("Component palette")).toBeInTheDocument();
+    expect(screen.getByText("Properties")).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
         name: "Rectangular channelchannel.rectangular",
       }),
     ).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Component category"), {
+    fireEvent.change(screen.getByLabelText("Category"), {
       target: { value: "control" },
     });
     fireEvent.click(
@@ -117,11 +141,85 @@ describe("App", () => {
         name: "Normally closed valvevalve.normally-closed",
       }),
     );
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
-    expect(
-      screen.getByRole("heading", { name: "Normally closed valve" }),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /create/i })).not.toBeInTheDocument();
     expect(projectStore.getState().project?.id).toBe(projectId);
+    expect(projectStore.getState().project?.components).toHaveLength(1);
+    expect(projectStore.getState().project?.ports).toHaveLength(3);
+    expect(projectStore.getState().metadata?.revision).toBe((revision ?? 0) + 1);
+  });
+
+  it("selects an editor component and shows its properties", async () => {
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("Untitled Project")).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Rectangular channelchannel.rectangular",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    const node = await screen.findByLabelText(
+      "Rectangular channel Rectangular channel",
+    );
+    fireEvent.click(node);
+
+    expect(projectStore.getState().selectedComponentIds).toHaveLength(1);
+    expect(screen.getByLabelText(/X mm/i)).toHaveValue("4");
+    expect(screen.getByLabelText(/Y mm/i)).toHaveValue("4");
+  });
+
+  it("saves locally when broadcast publication fails", async () => {
+    vi.stubGlobal("BroadcastChannel", ThrowingBroadcastChannel);
+
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("Untitled Project")).toBeInTheDocument();
+    });
+
+    act(() => {
+      projectStore.getState().updateProject(
+        (currentProject) => ({
+          ...currentProject,
+          name: "Broadcast resilient project",
+          updatedAt: "2026-08-05T00:00:01.000Z",
+        }),
+        "Rename",
+      );
+    });
+    const revision = projectStore.getState().metadata?.revision;
+
+    fireEvent.click(screen.getByRole("button", { name: "Save locally" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Saved locally")).toBeInTheDocument();
+    });
+    expect(projectStore.getState().metadata?.savedRevision).toBe(revision);
+    expect(projectStore.getState().localSaveStatus).toBe("saved");
+
+    const localProjectId = projectStore.getState().metadata?.localProjectId;
+    expect(localProjectId).toBeDefined();
+    const stored = await loadProjectRecord(localProjectId!);
+    expect(stored.project.name).toBe("Broadcast resilient project");
+    expect(stored.savedRevision).toBe(revision);
+  });
+
+  it("keeps IndexedDB failures as local-save failures", async () => {
+    vi.stubGlobal("indexedDB", undefined);
+
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("Untitled Project")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save locally" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Local save failed")).toBeInTheDocument();
+    });
+    expect(projectStore.getState().metadata?.locallySavedAt).toBeNull();
   });
 });

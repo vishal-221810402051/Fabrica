@@ -122,6 +122,18 @@ A deterministic pairwise preflight check for a proposed connection. It can
 report direction, medium, role, layer, lane, duplicate, ownership, and
 multiplicity issues. It is not whole-project topology validation.
 
+## Visual Editor
+
+A browser UI that derives visual nodes, handles, and edges from the
+authoritative project model. It may support interaction, selection, viewport
+movement, and draft inputs, but those visual states are not persisted
+engineering data.
+
+## Visual Handle
+
+A deterministic UI adapter for a persisted port. Phase 5 handle IDs map back to
+port IDs and are never stored in authoritative connection records.
+
 ## Validation Finding
 
 A structured diagnostic produced by validation. It should have a stable code, severity, affected model identifier, message, machine-readable details, source engine, and suggested remediation where appropriate.

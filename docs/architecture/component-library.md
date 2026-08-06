@@ -113,19 +113,20 @@ ownership, preserves engineering values, provenance, layer, lane, and
 definition extensions, applies a deterministic position offset, and returns ID
 mappings. External connections are not copied.
 
-## Web Catalogue
+## Web Consumption
 
-`apps/web` includes a minimal read-only catalogue. It imports registry data from
-`microfluidic-components`, supports category filtering and definition
-selection, and displays parameters, ports, policies, manufacturing metadata,
-and icon descriptor keys.
+`apps/web` includes the Phase 4 read-only catalogue component and the Phase 5
+visual-editor palette. Both import registry data from
+`microfluidic-components`; the Phase 5 palette adds click-to-add project
+mutation through the component factory and editor actions instead of copying
+registry data into the web app.
 
-The catalogue is not a component palette. It has no create button, drag and
-drop, canvas, project mutation, topology engine, CAD, or properties editor.
+The registry remains independent of drag and drop, canvas rendering, topology
+engines, CAD, and web-specific state. Phase 5 project mutation lives in the web
+editor action layer, not inside `microfluidic-components`.
 
 ## Deferred
 
-Editor insertion, visual node palettes, connection drawing, whole-project
-validation, layout derivation, process-profile DFM checks, CAD generation,
-runtime plugins, backend persistence, and AI command execution remain future
-work.
+Drag-from-palette, automatic layout, automatic routing, whole-project
+validation, process-profile DFM checks, CAD generation, runtime plugins,
+backend persistence, and AI command execution remain future work.

@@ -1,7 +1,9 @@
 # Testing Strategy
 
-Phase 4 adds component-registry, factory, duplication, local port-compatibility,
-and read-only catalogue tests on top of the Phase 3 browser-local project state,
+Phase 5 adds visual-editor projection, insertion, movement, connection,
+property, duplication, deletion, keyboard, and scale tests on top of Phase 4
+component-registry, factory, duplication, local port-compatibility,
+and catalogue tests and the Phase 3 browser-local project state,
 IndexedDB persistence, import/export, autosave, recovery, recent-project,
 multi-tab warning, and undo/redo tests.
 
@@ -33,7 +35,8 @@ Testing must protect the authoritative project model, cross-language contract co
 ## Tool Ownership
 
 - Vitest: TypeScript unit and component tests.
-- Playwright: browser end-to-end tests.
+- Browser end-to-end runner: future browser end-to-end tests when explicitly
+  introduced.
 - Pytest: Python API, CAD, integration, and migration tests.
 
 ESLint, Prettier, Ruff, Pyright, and the TypeScript compiler support quality checks but are not substitutes for behavioral tests.
@@ -66,8 +69,17 @@ local direction/medium/role/layer/lane/multiplicity compatibility, and
 component-level duplication.
 
 `apps/web` tests must keep the Phase 3 project-management controls and health
-cards covered while verifying that the catalogue is read-only and does not
-mutate the active project.
+cards covered while verifying that the visual editor remains a projection of
+the authoritative project, mutates only through validated transactions, and
+does not persist React Flow viewport, node, edge, selection, or preview state.
+
+## Phase 5 Focus
+
+Editor tests cover handle ID mapping, project-to-node projection, click-to-add,
+1 mm snapped movement, local connection compatibility, property updates through
+the Phase 4 instance API, layer/lane reassignment rejection when connections
+would become incompatible, duplication/deletion cleanup, keyboard guards, and a
+100-component projection scale case without fragile timing assertions.
 
 ## Fixture Strategy
 

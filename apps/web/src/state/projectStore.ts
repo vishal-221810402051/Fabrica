@@ -33,6 +33,15 @@ export function createProjectStore() {
     localSaveStatus: "idle",
     externalRevisionWarning: null,
     history: createProjectHistory(),
+    selectedComponentIds: [],
+    selectedConnectionIds: [],
+    activeLayerId: null,
+    activeLaneId: null,
+    paletteCategory: "all",
+    paletteSearch: "",
+    dragPreviewPositions: {},
+    connectionPreview: null,
+    editorError: null,
 
     createNewProject: () => {
       const project = createProject();
@@ -47,6 +56,7 @@ export function createProjectStore() {
         localSaveStatus: "idle",
         externalRevisionWarning: null,
         history: createProjectHistory(),
+        ...initialEditorState(project),
       });
     },
 
@@ -64,6 +74,7 @@ export function createProjectStore() {
         externalRevisionWarning: null,
         history:
           options?.resetHistory === false ? get().history : createProjectHistory(),
+        ...initialEditorState(projectModel.parseProject(project)),
       });
     },
 
@@ -99,6 +110,7 @@ export function createProjectStore() {
         metadata: nextDirtyMetadata(state.metadata),
         history: result.history,
       });
+      get().reconcileEditorState();
     },
 
     beginTransaction: (label) => {
@@ -133,6 +145,7 @@ export function createProjectStore() {
         metadata: nextDirtyMetadata(state.metadata),
         history: result.history,
       });
+      get().reconcileEditorState();
     },
 
     cancelTransaction: () => {
@@ -157,6 +170,7 @@ export function createProjectStore() {
         metadata: nextDirtyMetadata(state.metadata),
         history: result.history,
       });
+      get().reconcileEditorState();
     },
 
     redo: () => {
@@ -173,6 +187,7 @@ export function createProjectStore() {
         metadata: nextDirtyMetadata(state.metadata),
         history: result.history,
       });
+      get().reconcileEditorState();
     },
 
     markSavedLocally: (revision, savedAt = nowIso()) => {
@@ -230,6 +245,86 @@ export function createProjectStore() {
     clearError: () => set({ error: null }),
     setRecentProjects: (projects) => set({ recentProjects: projects }),
     setExternalRevisionWarning: (warning) => set({ externalRevisionWarning: warning }),
+    setSelectedComponents: (componentIds) => {
+      const next = unique(componentIds);
+      const state = get();
+      if (
+        sameStrings(state.selectedComponentIds, next) &&
+        state.selectedConnectionIds.length === 0
+      ) {
+        return;
+      }
+      set({ selectedComponentIds: next, selectedConnectionIds: [] });
+    },
+    setSelectedConnections: (connectionIds) => {
+      const next = unique(connectionIds);
+      const state = get();
+      if (
+        sameStrings(state.selectedConnectionIds, next) &&
+        state.selectedComponentIds.length === 0
+      ) {
+        return;
+      }
+      set({ selectedConnectionIds: next, selectedComponentIds: [] });
+    },
+    setEditorSelection: (selection) => {
+      const nextComponents = unique(selection.componentIds ?? []);
+      const nextConnections = unique(selection.connectionIds ?? []);
+      const state = get();
+      if (
+        sameStrings(state.selectedComponentIds, nextComponents) &&
+        sameStrings(state.selectedConnectionIds, nextConnections)
+      ) {
+        return;
+      }
+      set({
+        selectedComponentIds: nextComponents,
+        selectedConnectionIds: nextConnections,
+      });
+    },
+    clearEditorSelection: () =>
+      set({
+        selectedComponentIds: [],
+        selectedConnectionIds: [],
+        connectionPreview: null,
+        editorError: null,
+      }),
+    setActiveLayerId: (layerId) => set({ activeLayerId: layerId }),
+    setActiveLaneId: (laneId) => set({ activeLaneId: laneId }),
+    setPaletteFilter: (filter) =>
+      set((state) => ({
+        paletteCategory: filter.category ?? state.paletteCategory,
+        paletteSearch: filter.search ?? state.paletteSearch,
+      })),
+    setDragPreviewPositions: (positions) => set({ dragPreviewPositions: positions }),
+    clearDragPreviewPositions: () => set({ dragPreviewPositions: {} }),
+    setConnectionPreview: (preview) => set({ connectionPreview: preview }),
+    setEditorError: (error) => set({ editorError: error }),
+    reconcileEditorState: () => {
+      const state = get();
+      if (!state.project) {
+        set(initialEditorState(null));
+        return;
+      }
+      const componentIds = new Set(state.project.components.map((item) => item.id));
+      const connectionIds = new Set(state.project.connections.map((item) => item.id));
+      const layerIds = new Set(state.project.layers.map((item) => item.id));
+      const laneIds = new Set(state.project.lanes.map((item) => item.id));
+      set({
+        selectedComponentIds: state.selectedComponentIds.filter((id) =>
+          componentIds.has(id),
+        ),
+        selectedConnectionIds: state.selectedConnectionIds.filter((id) =>
+          connectionIds.has(id),
+        ),
+        activeLayerId: layerIds.has(state.activeLayerId ?? "")
+          ? state.activeLayerId
+          : (state.project.layers[0]?.id ?? null),
+        activeLaneId: laneIds.has(state.activeLaneId ?? "") ? state.activeLaneId : null,
+        dragPreviewPositions: {},
+        connectionPreview: null,
+      });
+    },
   }));
 }
 
@@ -257,5 +352,36 @@ export function resetProjectStoreForTests(): void {
     localSaveStatus: "idle",
     externalRevisionWarning: null,
     history: resetProjectHistory(createProjectHistory()),
+    selectedComponentIds: [],
+    selectedConnectionIds: [],
+    activeLayerId: null,
+    activeLaneId: null,
+    paletteCategory: "all",
+    paletteSearch: "",
+    dragPreviewPositions: {},
+    connectionPreview: null,
+    editorError: null,
   });
+}
+
+function initialEditorState(project: projectModel.Project | null) {
+  return {
+    selectedComponentIds: [],
+    selectedConnectionIds: [],
+    activeLayerId: project?.layers[0]?.id ?? null,
+    activeLaneId: null,
+    dragPreviewPositions: {},
+    connectionPreview: null,
+    editorError: null,
+  };
+}
+
+function unique(values: readonly string[]): string[] {
+  return Array.from(new Set(values));
+}
+
+function sameStrings(left: readonly string[], right: readonly string[]): boolean {
+  return (
+    left.length === right.length && left.every((value, index) => value === right[index])
+  );
 }

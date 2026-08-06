@@ -2,7 +2,7 @@
 
 Fabricgamma is a planned AI-powered platform for designing microfluidic chips with an authoritative engineering model, deterministic validation, deterministic calculations, and production CAD export.
 
-Current status: Phase 4 component-library foundation. The repository contains the Phase 1 monorepo foundation, the Phase 2 versioned project model and unit system, Phase 3 browser-local project management, and Phase 4 reusable component definitions with local port compatibility checks and a read-only web catalogue.
+Current status: Phase 5 visual editor foundation. The repository contains the Phase 1 monorepo foundation, the Phase 2 versioned project model and unit system, Phase 3 browser-local project management, Phase 4 reusable component definitions with local port compatibility checks, and Phase 5 interactive component placement and connection editing.
 
 ## Purpose
 
@@ -80,14 +80,14 @@ fabrica/
 
 ## Planned Technical Baseline
 
-- Frontend: React, TypeScript, Vite, Tailwind CSS, React Flow, Zustand, React Three Fiber, Zod, Vitest, Playwright.
+- Frontend: React, TypeScript, Vite, React Flow, Zustand, Zod, Vitest.
 - Backend: Python 3.12, FastAPI, Pydantic, SQLAlchemy, Alembic, PostgreSQL, Pytest.
 - CAD: Python, CadQuery, OpenCascade, STEP export, STL export.
 - Infrastructure: Git, GitHub, GitHub Actions, Docker Compose, ESLint, Prettier, Ruff, Pyright, Conventional Commits.
 - JavaScript package manager: pnpm.
 - Python dependency and virtual-environment manager: uv.
 
-Phase 4 adds a frozen microfluidic component-definition registry, deterministic component factory and duplication helpers, React-free icon descriptors, local port compatibility checks, and a read-only browser catalogue. It does not implement editor insertion, topology validation, backend persistence, engineering calculations, manufacturing rules, GPT integration, production CAD, STEP/STL export, simulation, or Engineering Ready workflows.
+Phase 5 adds a React Flow visual editor that projects the authoritative project model into nodes, handles, and edges. It supports click-to-add components, manual movement on a 1 mm grid, local compatibility-checked connections, basic property editing, duplication, deletion, undo/redo, and autosave. It does not implement automatic layout, routing, topology validation, backend persistence, engineering calculations, manufacturing rules, GPT integration, production CAD, STEP/STL export, or simulation.
 
 ## Development
 
@@ -118,6 +118,7 @@ Health endpoints:
 - [Project model](docs/architecture/project-model.md)
 - [Project state](docs/architecture/project-state.md)
 - [Component library](docs/architecture/component-library.md)
+- [Visual editor](docs/architecture/visual-editor.md)
 - [Unit system](docs/architecture/unit-system.md)
 - [Architecture decisions](docs/architecture/decisions/README.md)
 - [Platform architecture ADR](docs/architecture/decisions/ADR-0001-platform-architecture.md)

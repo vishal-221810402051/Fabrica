@@ -1,5 +1,11 @@
 import type { Project } from "project-model";
+import type { ComponentCategory } from "microfluidic-components";
 
+import type {
+  ConnectionPreviewState,
+  EditorStructuredError,
+  Point,
+} from "../editor/editor.types";
 import type { ProjectHistory } from "../history/projectHistory.types";
 import type {
   AutosaveState,
@@ -35,6 +41,15 @@ export interface ProjectStoreState {
   localSaveStatus: "idle" | "saving" | "saved" | "failed";
   externalRevisionWarning: ExternalRevisionWarning | null;
   history: ProjectHistory;
+  selectedComponentIds: string[];
+  selectedConnectionIds: string[];
+  activeLayerId: string | null;
+  activeLaneId: string | null;
+  paletteCategory: ComponentCategory | "all";
+  paletteSearch: string;
+  dragPreviewPositions: Record<string, Point>;
+  connectionPreview: ConnectionPreviewState | null;
+  editorError: EditorStructuredError | null;
 }
 
 export interface ProjectStoreActions {
@@ -64,6 +79,24 @@ export interface ProjectStoreActions {
   clearError: () => void;
   setRecentProjects: (projects: RecentProjectSummary[]) => void;
   setExternalRevisionWarning: (warning: ExternalRevisionWarning | null) => void;
+  setSelectedComponents: (componentIds: string[]) => void;
+  setSelectedConnections: (connectionIds: string[]) => void;
+  setEditorSelection: (selection: {
+    componentIds?: string[];
+    connectionIds?: string[];
+  }) => void;
+  clearEditorSelection: () => void;
+  setActiveLayerId: (layerId: string | null) => void;
+  setActiveLaneId: (laneId: string | null) => void;
+  setPaletteFilter: (filter: {
+    category?: ComponentCategory | "all";
+    search?: string;
+  }) => void;
+  setDragPreviewPositions: (positions: Record<string, Point>) => void;
+  clearDragPreviewPositions: () => void;
+  setConnectionPreview: (preview: ConnectionPreviewState | null) => void;
+  setEditorError: (error: EditorStructuredError | null) => void;
+  reconcileEditorState: () => void;
 }
 
 export type ProjectStore = ProjectStoreState & ProjectStoreActions;

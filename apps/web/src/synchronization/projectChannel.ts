@@ -8,6 +8,7 @@ export interface ProjectChannelMessage {
 
 export interface ProjectChannel {
   instanceId: string;
+  open: () => void;
   publish: (message: Omit<ProjectChannelMessage, "senderInstanceId">) => void;
   close: () => void;
 }
@@ -23,24 +24,49 @@ export function createProjectChannel(
   if (typeof globalThis.BroadcastChannel !== "function") {
     return {
       instanceId,
+      open: () => undefined,
       publish: () => undefined,
       close: () => undefined,
     };
   }
 
-  const channel = new BroadcastChannel(PROJECT_CHANNEL_NAME);
-  channel.onmessage = (event: MessageEvent<ProjectChannelMessage>) => {
-    const message = event.data;
-    if (!message || message.senderInstanceId === instanceId) {
+  let channel: BroadcastChannel | null = null;
+
+  const open = () => {
+    if (channel) {
       return;
     }
-    onExternalMessage(message);
+    channel = new BroadcastChannel(PROJECT_CHANNEL_NAME);
+    channel.onmessage = (event: MessageEvent<ProjectChannelMessage>) => {
+      const message = event.data;
+      if (!message || message.senderInstanceId === instanceId) {
+        return;
+      }
+      onExternalMessage(message);
+    };
   };
+
+  open();
 
   return {
     instanceId,
-    publish: (message) =>
-      channel.postMessage({ ...message, senderInstanceId: instanceId }),
-    close: () => channel.close(),
+    open,
+    publish: (message) => {
+      if (!channel) {
+        return;
+      }
+      try {
+        channel.postMessage({ ...message, senderInstanceId: instanceId });
+      } catch {
+        // IndexedDB persistence is authoritative; cross-tab publication is best-effort.
+      }
+    },
+    close: () => {
+      if (!channel) {
+        return;
+      }
+      channel.close();
+      channel = null;
+    },
   };
 }

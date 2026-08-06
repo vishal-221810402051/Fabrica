@@ -13,7 +13,8 @@ or browser runtime code. Definitions are serializable data only.
 - `packages/units` remains the unit normalization and provenance authority.
 - `microfluidic-components` consumes both packages and does not change the
   project-model schema.
-- `apps/web` consumes this package only for the read-only catalogue.
+- `apps/web` consumes this package for the Phase 5 visual editor palette,
+  projection metadata, and component-instance property editing.
 
 No runtime registration API exists. Built-in definitions are frozen after
 registry construction.
@@ -31,6 +32,17 @@ Registry APIs:
 - `getComponentDefinition(key)`
 - `hasComponentDefinition(key)`
 - `validateRegistry()`
+
+Instance APIs:
+
+- `getComponentParameterValues(component)`
+- `updateComponentParameters(options)`
+- `validateComponentInstance(component, ownedPorts?)`
+
+These APIs read and update persisted component instances without becoming a
+project store. First-class project-model fields remain authoritative over
+definition-parameter extension values, and editor-originated parameter updates
+default to `user-entered` provenance.
 
 The registry ships 30 built-in definitions covering channels, junctions,
 chambers, reservoirs, valves, conditioning components, interfaces, and a

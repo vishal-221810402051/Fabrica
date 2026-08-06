@@ -38,6 +38,11 @@ identity and port-template metadata in namespaced extensions, but it does not
 insert objects into a project, create connections, mutate browser-local storage,
 or produce CAD artifacts.
 
+Phase 5 visual editing starts from the current authoritative project and derives
+React Flow nodes, handles, and edges. User interactions become narrow validated
+project mutations through Phase 3 history and autosave. React Flow viewport,
+selection, drag preview, and connection preview state are not serialized.
+
 ## AI Flow
 
 ```text

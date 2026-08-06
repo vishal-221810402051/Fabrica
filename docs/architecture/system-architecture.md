@@ -4,7 +4,7 @@
 
 Fabricgamma is a monorepo for an AI-powered microfluidic chip design platform. The architecture must preserve one authoritative engineering model, deterministic engineering behavior, auditable derived artifacts, and a clear boundary between preview visualization and production CAD.
 
-Phase 0 defined the architecture foundation. Phase 1 introduced executable workspace scaffolding, health checks, dependency manifests, lockfiles, Docker Compose configuration, and CI. Phase 2 introduced the initial project-model schema and unit system. Phase 3 introduced browser-local project management. Phase 4 introduces reusable component definitions, deterministic component factories, component duplication, local port compatibility, and a read-only web catalogue. Database migrations, CAD implementation, calculations, simulations, AI command execution, whole-project validation, and manufacturing logic remain deferred.
+Phase 0 defined the architecture foundation. Phase 1 introduced executable workspace scaffolding, health checks, dependency manifests, lockfiles, Docker Compose configuration, and CI. Phase 2 introduced the initial project-model schema and unit system. Phase 3 introduced browser-local project management. Phase 4 introduced reusable component definitions, deterministic component factories, component duplication, local port compatibility, and a read-only web catalogue. Phase 5 introduces the first visual editor projection for component placement, movement, local connections, and basic property editing. Database migrations, CAD implementation, calculations, simulations, AI command execution, whole-project validation, and manufacturing logic remain deferred.
 
 ## Target Monorepo Structure
 
@@ -130,7 +130,7 @@ A design is not Engineering Ready merely because it renders, meshes, or exports.
 
 ## Explicit Exclusions
 
-Phase 4 excludes component insertion workflows, drag-and-drop palettes, connection drawing, whole-project topology validation, engineering calculations, process-profile DFM checks, layout engines, backend persistence, database migrations, GPT integration, production CAD, STEP/STL export, simulation, manufacturing logic, pushes, tags, and Phase 5 work.
+Phase 5 excludes drag-from-palette, automatic routing, automatic layout, collision detection, chip-boundary enforcement, whole-project topology validation, engineering calculations, process-profile DFM checks, backend persistence, database migrations, GPT integration, production CAD, STEP/STL export, simulation, manufacturing logic, pushes, tags, and Phase 6 work.
 
 ## Deferred Decisions
 
