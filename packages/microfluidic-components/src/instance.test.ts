@@ -168,6 +168,36 @@ describe("component instance APIs", () => {
     expect(updatedValve.extensions[DEFINITION_PARAMETERS_EXTENSION]).toBeUndefined();
   });
 
+  it("supports registry reset provenance and optional first-class clearing", () => {
+    const result = createComponentFromDefinition({
+      definitionKey: "chamber.reaction",
+      layerId,
+      position,
+      parameterOverrides: {
+        width: { value: 1, unit: "mm", provenance: { source: "user-entered" } },
+        "declared-volume": {
+          value: 5,
+          unit: "mm3",
+          provenance: { source: "user-entered" },
+        },
+      },
+    });
+    const reset = updateComponentParameters({
+      component: result.component,
+      updates: {
+        width: { value: 2, unit: "mm", provenance: { source: "system-default" } },
+        "declared-volume": null,
+      },
+      provenanceOverrides: { width: "system-default" },
+    }).component;
+
+    expect(reset.kind).toBe("chamber");
+    if (reset.kind === "chamber") {
+      expect(reset.chamber.dimensions.width.provenance.source).toBe("system-default");
+      expect(reset.chamber.declaredVolume).toBeUndefined();
+    }
+  });
+
   it("rejects tampered identity, unknown parameters, and invalid values", () => {
     const result = createComponentFromDefinition({
       definitionKey: "channel.rectangular",

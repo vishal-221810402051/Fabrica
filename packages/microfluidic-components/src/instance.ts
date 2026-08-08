@@ -352,16 +352,24 @@ function writeFirstClassValue(
   key: string,
   value: ParameterValue | undefined,
 ): Component {
-  if (value === undefined) {
-    return component;
-  }
   switch (component.kind) {
     case "channel":
+      if (value === undefined) {
+        return component;
+      }
       return {
         ...component,
         channel: { ...component.channel, [key]: value },
       } as Component;
     case "chamber":
+      if (value === undefined && key === "declared-volume") {
+        const chamber = { ...component.chamber };
+        delete chamber.declaredVolume;
+        return { ...component, chamber } as Component;
+      }
+      if (value === undefined) {
+        return component;
+      }
       return {
         ...component,
         chamber: {
@@ -371,6 +379,14 @@ function writeFirstClassValue(
         },
       } as Component;
     case "reservoir":
+      if (value === undefined && key === "declared-volume") {
+        const reservoir = { ...component.reservoir };
+        delete reservoir.declaredCapacity;
+        return { ...component, reservoir } as Component;
+      }
+      if (value === undefined) {
+        return component;
+      }
       return {
         ...component,
         reservoir: {
@@ -380,6 +396,9 @@ function writeFirstClassValue(
         },
       } as Component;
     case "valve":
+      if (value === undefined) {
+        return component;
+      }
       return key === "normally-open"
         ? ({
             ...component,
@@ -387,16 +406,25 @@ function writeFirstClassValue(
           } as Component)
         : component;
     case "sensor-interface":
+      if (value === undefined) {
+        return component;
+      }
       return {
         ...component,
         sensorInterface: writeInterfaceValue(component.sensorInterface, key, value),
       } as Component;
     case "optical-interface":
+      if (value === undefined) {
+        return component;
+      }
       return {
         ...component,
         opticalInterface: writeInterfaceValue(component.opticalInterface, key, value),
       } as Component;
     case "generic":
+      if (value === undefined) {
+        return component;
+      }
       return {
         ...component,
         dimensions: writeDimensions(component.dimensions ?? {}, key, value),

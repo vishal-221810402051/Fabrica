@@ -343,6 +343,7 @@ export function updateComponentParameterValues(
   const updated = updateComponentParameters({
     component,
     updates: options.updates,
+    provenanceOverrides: options.provenanceOverrides,
   }).component;
   return replaceComponent(project, updated, now);
 }

@@ -172,6 +172,69 @@ describe("App", () => {
     expect(screen.getByLabelText(/Y mm/i)).toHaveValue("4");
   });
 
+  it("applies project inspector drafts explicitly and supports undo/redo", async () => {
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("Untitled Project")).toBeInTheDocument();
+    });
+    const initialRevision = projectStore.getState().metadata?.revision;
+
+    fireEvent.change(screen.getByLabelText("Inspector scope"), {
+      target: { value: "project" },
+    });
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Manual edit project" },
+    });
+
+    expect(projectStore.getState().project?.name).toBe("Untitled Project");
+    expect(projectStore.getState().metadata?.revision).toBe(initialRevision);
+
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(projectStore.getState().project?.name).toBe("Manual edit project");
+    expect(projectStore.getState().history.past).toHaveLength(1);
+
+    act(() => {
+      projectStore.getState().undo();
+    });
+    expect(projectStore.getState().project?.name).toBe("Untitled Project");
+    act(() => {
+      projectStore.getState().redo();
+    });
+    expect(projectStore.getState().project?.name).toBe("Manual edit project");
+  });
+
+  it("keeps multi-component selection read-only in the properties inspector", async () => {
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("Untitled Project")).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Rectangular channelchannel.rectangular",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Rectangular channelchannel.rectangular",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    act(() => {
+      projectStore
+        .getState()
+        .setSelectedComponents(
+          projectStore.getState().project!.components.map((component) => component.id),
+        );
+    });
+
+    expect(screen.getByText("Multi-selection")).toBeInTheDocument();
+    expect(screen.getByText(/read-only in Phase 6/i)).toBeInTheDocument();
+  });
+
   it("saves locally when broadcast publication fails", async () => {
     vi.stubGlobal("BroadcastChannel", ThrowingBroadcastChannel);
 

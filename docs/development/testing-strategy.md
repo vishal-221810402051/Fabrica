@@ -1,9 +1,11 @@
 # Testing Strategy
 
-Phase 5 adds visual-editor projection, insertion, movement, connection,
-property, duplication, deletion, keyboard, and scale tests on top of Phase 4
-component-registry, factory, duplication, local port-compatibility,
-and catalogue tests and the Phase 3 browser-local project state,
+Phase 6 adds typed inspector, unit-draft, manual property-edit, registry reset,
+optional-parameter clearing, and multi-selection read-only tests on top of
+Phase 5 visual-editor projection, insertion, movement, connection, property,
+duplication, deletion, keyboard, and scale tests; Phase 4 component-registry,
+factory, duplication, local port-compatibility, and catalogue tests; and the
+Phase 3 browser-local project state,
 IndexedDB persistence, import/export, autosave, recovery, recent-project,
 multi-tab warning, and undo/redo tests.
 
@@ -80,6 +82,23 @@ Editor tests cover handle ID mapping, project-to-node projection, click-to-add,
 the Phase 4 instance API, layer/lane reassignment rejection when connections
 would become incompatible, duplication/deletion cleanup, keyboard guards, and a
 100-component projection scale case without fragile timing assertions.
+
+## Phase 6 Focus
+
+Inspector tests must verify that drafts stay transient until explicit Apply,
+invalid and no-op applies do not mutate history or persistence state, unit
+display choices convert only through supported units, canonical Project values
+and schema version remain authoritative, manual quantity edits receive
+`user-entered` provenance, registry resets preserve registry/default provenance,
+optional values clear only where allowed, and export/import payloads exclude
+drafts and display-unit preferences.
+
+Pure editor-action tests should cover project, chip, layer, lane, port,
+material, manufacturing-process, component, and registry-parameter edits without
+browser timing. Component-registry tests should protect shared first-class and
+extension parameter behavior such as reset provenance and optional clear.
+jsdom UI tests should cover the inspector's explicit Apply workflow,
+undo/redo integration, and read-only multi-selection behavior.
 
 ## Fixture Strategy
 

@@ -63,13 +63,38 @@ not dirty the project.
 Connections are created only after Phase 4 local compatibility passes. Failed
 connection attempts show structured feedback and do not persist edges.
 
-The property panel edits component name, position, rotation, layer, lane, and
-Phase 4 declarative parameter values. Parameter updates use
-`updateComponentParameters` from `microfluidic-components` so first-class and
-extension mappings remain centralized.
+Phase 6 expands the property inspector into explicit typed editors for the
+existing project, chip, layer, lane, selected component, selected component
+ports, material, and manufacturing-process records. The inspector never exposes
+raw JSON, metadata, or extension editing, and it does not create or delete
+layers, lanes, materials, fluids, processes, ports, or components outside the
+Phase 5 editor commands.
+
+Forms keep local string drafts and session-only display-unit choices. Project
+mutation happens only when the user applies a section. A successful apply
+passes the resulting Project through the existing schema and integrity checks
+and enters Phase 3 history as one atomic operation; invalid and no-op applies
+leave timestamps, history, autosave, IndexedDB state, export payloads, and
+BroadcastChannel notifications unchanged.
+
+Component parameter controls are generated from the frozen Phase 4
+`ComponentDefinition.parameters` metadata and still apply through
+`updateComponentParameters` from `microfluidic-components`, keeping first-class
+and extension mappings centralized. Manual quantity edits are converted into
+canonical Project units and marked `user-entered`; registry resets use the
+registry default value and provenance source. Optional quantity parameters can
+be cleared only when the definition allows absence.
+
+Project, chip, layer, component, and registry quantity editors offer only
+conversions supported by the `units` package. Display units are not serialized,
+stored in IndexedDB project records, or included in import/export content.
+Selected component port name and fluid assignment are editable; port direction,
+component ownership, and registry/template metadata remain read-only.
 
 Layer or lane reassignment is rejected if any existing incident connection
 would become incompatible. Connections are not removed automatically.
+
+Multiple selected components show a read-only summary. Multi-edit is deferred.
 
 Duplication uses the Phase 4 duplication helper, offsets by 1 mm, rewrites IDs,
 preserves parameters and provenance, and does not duplicate external
@@ -86,7 +111,7 @@ editable content.
 
 ## Deferred
 
-Phase 5 does not implement drag-from-palette, minimap, automatic layout,
+Phase 6 does not implement drag-from-palette, minimap, automatic layout,
 automatic routing, obstacle avoidance, topology validation, waste-path checks,
 hydraulic calculations, manufacturing-rule engines, 3D preview, CAD generation,
 STEP/STL export, GPT generation, backend persistence, authentication,
@@ -96,6 +121,7 @@ collaboration, or simulation.
 
 Core behavior is covered by jsdom-based unit and component tests for projection,
 handle mapping, palette insertion, movement, selection, connection creation,
-property updates, duplication, deletion, keyboard shortcuts, and a deterministic
-100-component projection scale check. Manual browser validation is still
-required for pointer feel and viewport ergonomics.
+typed property updates, unit drafts, registry resets and optional clears,
+duplication, deletion, keyboard shortcuts, and a deterministic 100-component
+projection scale check. Manual browser validation is still required for pointer
+feel, viewport ergonomics, and full editor workflow confidence.

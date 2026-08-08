@@ -17,6 +17,7 @@ import type {
   PortMedium,
   PortRole,
 } from "microfluidic-components";
+import type { ProvenanceSource } from "units";
 
 export interface Point {
   x: number;
@@ -118,6 +119,7 @@ export interface DeleteSelectionOptions {
 export interface ParameterEditOptions {
   componentId: ComponentId;
   updates: Record<string, ParameterValue>;
+  provenanceOverrides?: Record<string, ProvenanceSource>;
 }
 
 export interface PropertyDraftParameter {

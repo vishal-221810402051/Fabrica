@@ -17,6 +17,7 @@
     "project-model": "workspace:*",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "units": "workspace:*",
     "zustand": "5.0.14"
   },
   "devDependencies": {

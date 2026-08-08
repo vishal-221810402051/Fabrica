@@ -20,12 +20,18 @@ components, manual placement and movement, port handles, locally compatible
 connections, basic property edits, duplication, deletion, undo/redo, and
 autosave through the existing Phase 3 project store.
 
+Phase 6 expands the properties inspector for safe manual edits to existing
+project, chip, layer, lane, component, port, material, and manufacturing-process
+records. Inspector forms use typed controls and session-only display-unit
+drafts; the stored Project remains schema-validated and canonical.
+
 React Flow nodes, handles, edges, selection, and viewport state are visual-only
 projections and are not exported as engineering data.
 
 The app still does not contain drag-from-palette, automatic layout, automatic
 routing, whole-network validation, 3D viewer, engineering calculations, GPT
-integration, or CAD controls.
+integration, manufacturing-rule engines, backend persistence, collaboration, or
+CAD controls.
 
 ## Commands
 
