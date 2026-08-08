@@ -37,6 +37,88 @@ export interface GeometryIssue {
   entityId?: string;
 }
 
+export interface Point3D extends Point2D {
+  z: number;
+}
+
+export interface SceneWarning {
+  code: string;
+  message: string;
+  entityId?: string;
+  path?: string;
+}
+
+export interface SceneChipGeometry {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  depth: number;
+}
+
+export interface SceneLayerGeometry extends LayerZRange {
+  name: string;
+  thickness: number;
+}
+
+export interface SceneComponentGeometry {
+  id: string;
+  name: string;
+  definitionKey: string;
+  kind: Component["kind"];
+  layerId: string;
+  footprint: PhysicalFootprint;
+  center: Point3D;
+  size: { width: number; height: number; depth: number };
+  rotation: number;
+  zTop: number;
+  zBottom: number;
+  physicalReady: boolean;
+}
+
+export interface SceneRouteSegmentGeometry {
+  id: string;
+  routeId: string;
+  connectionId: string;
+  layerId: string;
+  center: Point3D;
+  length: number;
+  width: number;
+  depth: number;
+  angle: number;
+  zTop: number;
+  zBottom: number;
+}
+
+export interface SceneRouteGeometry {
+  id: string;
+  connectionId: string;
+  layerId: string;
+  physicalReady: boolean;
+  points: Point3D[];
+  segments: SceneRouteSegmentGeometry[];
+  jointBoxes: SceneRouteSegmentGeometry[];
+  width?: number;
+  depth?: number;
+}
+
+export interface ScenePortGeometry {
+  id: string;
+  componentId: string;
+  layerId: string;
+  direction: Port["direction"];
+  position: Point3D;
+}
+
+export interface SceneGeometry {
+  chip: SceneChipGeometry;
+  layers: SceneLayerGeometry[];
+  components: SceneComponentGeometry[];
+  routes: SceneRouteGeometry[];
+  ports: ScenePortGeometry[];
+  warnings: SceneWarning[];
+}
+
 export const PHYSICAL_SNAP_MM = 0.1;
 export const MAJOR_GRID_MM = 1;
 export const DISPLAY_PIXELS_PER_MM = 24;
@@ -248,6 +330,173 @@ export function toCadPoint(
   };
 }
 
+export function projectToSceneGeometry(project: Project): SceneGeometry {
+  const warnings: SceneWarning[] = [];
+  const layers = deriveSceneLayers(project);
+  const layersById = new Map(layers.map((layer) => [layer.layerId, layer]));
+  const componentsById = new Map(
+    project.components.map((component) => [component.id, component]),
+  );
+  const portsById = new Map(project.ports.map((port) => [port.id, port]));
+
+  const stackDepth = layers.reduce((max, layer) => Math.max(max, layer.zMax), 0);
+  if (stackDepth !== project.chip.overallDimensions.depth.value) {
+    warnings.push({
+      code: "chip-layer-depth-mismatch",
+      message: "Chip depth and layer stack thickness differ",
+      entityId: project.chip.id,
+      path: "chip.overallDimensions.depth",
+    });
+  }
+
+  const components = project.components.flatMap((component, index) => {
+    const layer = layersById.get(component.layerId);
+    const footprint = deriveComponentFootprint(component);
+    const definitionKey = readDefinition(component).key;
+    if (!layer) {
+      warnings.push({
+        code: "missing-component-layer",
+        message: "Component layer is missing",
+        entityId: component.id,
+        path: `components.${index}.layerId`,
+      });
+      return [];
+    }
+    if (!footprint) {
+      warnings.push({
+        code: "missing-footprint",
+        message: "Component has no authoritative physical footprint",
+        entityId: component.id,
+        path: `components.${index}`,
+      });
+      warnings.push({
+        code: "unsupported-physical-component",
+        message: "Component is not physical-layout-ready for 3D preview",
+        entityId: component.id,
+        path: `components.${index}`,
+      });
+      return [];
+    }
+    if (!footprint.depth) {
+      warnings.push({
+        code: "missing-component-depth",
+        message: "Component footprint has no physical depth",
+        entityId: component.id,
+        path: `components.${index}`,
+      });
+      return [];
+    }
+    if (!isComponentInsideChip(project, component)) {
+      warnings.push({
+        code: "outside-chip-geometry",
+        message: "Component footprint is outside chip bounds",
+        entityId: component.id,
+        path: `components.${index}.position`,
+      });
+    }
+    const placement = cavityPlacement(layer, footprint.depth, warnings, {
+      entityId: component.id,
+      path: `components.${index}`,
+    });
+    if (!placement) {
+      return [];
+    }
+    const cadCenter = toCadPoint(
+      project,
+      {
+        x: component.position.x.value + footprint.width / 2,
+        y: component.position.y.value + footprint.height / 2,
+      },
+      component.layerId,
+    );
+    return [
+      {
+        id: component.id,
+        name: component.name,
+        definitionKey,
+        kind: component.kind,
+        layerId: component.layerId,
+        footprint,
+        center: { ...cadCenter, z: placement.zCenter },
+        size: {
+          width: footprint.width,
+          height: footprint.height,
+          depth: footprint.depth,
+        },
+        rotation: -component.rotation.value,
+        zTop: placement.zTop,
+        zBottom: placement.zBottom,
+        physicalReady: true,
+      },
+    ];
+  });
+
+  const ports = project.ports.flatMap((port, index) => {
+    const component = componentsById.get(port.componentId);
+    if (!component) {
+      warnings.push({
+        code: "missing-port-component",
+        message: "Port component is missing",
+        entityId: port.id,
+        path: `ports.${index}.componentId`,
+      });
+      return [];
+    }
+    const layer = layersById.get(component.layerId);
+    if (!layer) {
+      return [];
+    }
+    try {
+      const physical = getPhysicalPortPosition(project, component, port);
+      const cad = toCadPoint(project, physical, physical.layerId);
+      return [
+        {
+          id: port.id,
+          componentId: port.componentId,
+          layerId: physical.layerId,
+          direction: port.direction,
+          position: { ...cad, z: layer.zMax },
+        },
+      ];
+    } catch {
+      warnings.push({
+        code: "missing-footprint",
+        message: "Port position could not be derived from physical footprint",
+        entityId: port.id,
+        path: `ports.${index}`,
+      });
+      return [];
+    }
+  });
+
+  const routes = project.physicalRoutes.map((route, index) =>
+    routeToSceneGeometry(
+      project,
+      route,
+      index,
+      portsById,
+      componentsById,
+      layersById,
+      warnings,
+    ),
+  );
+
+  return {
+    chip: {
+      id: project.chip.id,
+      name: project.chip.name,
+      width: project.chip.overallDimensions.width.value,
+      height: project.chip.overallDimensions.height.value,
+      depth: project.chip.overallDimensions.depth.value,
+    },
+    layers,
+    components,
+    routes,
+    ports,
+    warnings,
+  };
+}
+
 export function validatePhysicalGeometry(project: Project): GeometryIssue[] {
   const issues: GeometryIssue[] = [];
   const layerIds = new Set(project.layers.map((layer) => layer.id));
@@ -323,6 +572,251 @@ export function validatePhysicalGeometry(project: Project): GeometryIssue[] {
   });
 
   return issues;
+}
+
+function deriveSceneLayers(project: Project): SceneLayerGeometry[] {
+  const layersById = new Map(project.layers.map((layer) => [layer.id, layer]));
+  return deriveLayerZRanges(project.layers).map((range) => {
+    const layer = layersById.get(range.layerId);
+    if (!layer) {
+      throw new Error(`Missing layer ${range.layerId}`);
+    }
+    return {
+      ...range,
+      name: layer.name,
+      thickness: layer.thickness.value,
+    };
+  });
+}
+
+function routeToSceneGeometry(
+  project: Project,
+  route: PhysicalRoute,
+  index: number,
+  portsById: Map<string, Port>,
+  componentsById: Map<string, Component>,
+  layersById: Map<string, SceneLayerGeometry>,
+  warnings: SceneWarning[],
+): SceneRouteGeometry {
+  const layer = layersById.get(route.layerId);
+  const routePath = `physicalRoutes.${index}`;
+  const points2d = safeRoutePolyline(project, route, warnings, routePath);
+  const points = points2d.map((point) => {
+    const cad = layer
+      ? toCadPoint(project, point, route.layerId)
+      : { x: point.x, y: point.y, z: 0 };
+    return { ...cad, z: layer?.zMax ?? 0 };
+  });
+
+  if (!project.connections.some((connection) => connection.id === route.connectionId)) {
+    warnings.push({
+      code: "invalid-route-reference",
+      message: "Route references a missing connection",
+      entityId: route.id,
+      path: `${routePath}.connectionId`,
+    });
+  }
+  if (!layer) {
+    warnings.push({
+      code: "invalid-route-reference",
+      message: "Route references a missing layer",
+      entityId: route.id,
+      path: `${routePath}.layerId`,
+    });
+  }
+  if (!route.width) {
+    warnings.push({
+      code: "missing-route-width",
+      message: "Route width is missing; rendering an incomplete guide",
+      entityId: route.id,
+      path: `${routePath}.width`,
+    });
+  }
+  if (!route.depth) {
+    warnings.push({
+      code: "missing-route-depth",
+      message: "Route depth is missing; rendering an incomplete guide",
+      entityId: route.id,
+      path: `${routePath}.depth`,
+    });
+  }
+  if (!route.width || !route.depth) {
+    warnings.push({
+      code: "incomplete-route",
+      message: "Route is not CAD-ready and is shown as a guide only",
+      entityId: route.id,
+      path: routePath,
+    });
+  }
+  if (route.bendRadius) {
+    warnings.push({
+      code: "bend-radius-preview-approximation",
+      message: "Bend radius is not represented geometrically in Phase 9A",
+      entityId: route.id,
+      path: `${routePath}.bendRadius`,
+    });
+  }
+
+  const placement =
+    layer && route.depth
+      ? cavityPlacement(layer, route.depth.value, warnings, {
+          entityId: route.id,
+          path: `${routePath}.depth`,
+        })
+      : null;
+  const physicalReady = Boolean(route.width && route.depth && layer && placement);
+  const segments =
+    physicalReady && route.width && route.depth && placement
+      ? rectangularRouteSegments(
+          route,
+          points,
+          route.width.value,
+          route.depth.value,
+          placement,
+        )
+      : [];
+  const jointBoxes =
+    physicalReady && route.width && route.depth && placement
+      ? rectangularRouteJoints(
+          route,
+          points,
+          route.width.value,
+          route.depth.value,
+          placement,
+        )
+      : [];
+
+  void portsById;
+  void componentsById;
+  return {
+    id: route.id,
+    connectionId: route.connectionId,
+    layerId: route.layerId,
+    physicalReady,
+    points,
+    segments,
+    jointBoxes,
+    ...(route.width ? { width: route.width.value } : {}),
+    ...(route.depth ? { depth: route.depth.value } : {}),
+  };
+}
+
+function safeRoutePolyline(
+  project: Project,
+  route: PhysicalRoute,
+  warnings: SceneWarning[],
+  path: string,
+): Point2D[] {
+  try {
+    return deriveFullRoutePolyline(project, route);
+  } catch {
+    warnings.push({
+      code: "invalid-route-reference",
+      message: "Route endpoints could not be derived",
+      entityId: route.id,
+      path,
+    });
+    return route.waypoints.map(toPoint);
+  }
+}
+
+function rectangularRouteSegments(
+  route: PhysicalRoute,
+  points: readonly Point3D[],
+  width: number,
+  depth: number,
+  placement: CavityPlacement,
+): SceneRouteSegmentGeometry[] {
+  const segments: SceneRouteSegmentGeometry[] = [];
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = points[index]!;
+    const end = points[index + 1]!;
+    const deltaX = end.x - start.x;
+    const deltaY = end.y - start.y;
+    const length = Math.hypot(deltaX, deltaY);
+    if (length === 0) {
+      continue;
+    }
+    segments.push({
+      id: `${route.id}:segment:${index}`,
+      routeId: route.id,
+      connectionId: route.connectionId,
+      layerId: route.layerId,
+      center: {
+        x: (start.x + end.x) / 2,
+        y: (start.y + end.y) / 2,
+        z: placement.zCenter,
+      },
+      length,
+      width,
+      depth,
+      angle: Math.atan2(deltaY, deltaX),
+      zTop: placement.zTop,
+      zBottom: placement.zBottom,
+    });
+  }
+  return segments;
+}
+
+function rectangularRouteJoints(
+  route: PhysicalRoute,
+  points: readonly Point3D[],
+  width: number,
+  depth: number,
+  placement: CavityPlacement,
+): SceneRouteSegmentGeometry[] {
+  return points.slice(1, -1).map((point, index) => ({
+    id: `${route.id}:joint:${index}`,
+    routeId: route.id,
+    connectionId: route.connectionId,
+    layerId: route.layerId,
+    center: { x: point.x, y: point.y, z: placement.zCenter },
+    length: width,
+    width,
+    depth,
+    angle: 0,
+    zTop: placement.zTop,
+    zBottom: placement.zBottom,
+  }));
+}
+
+interface CavityPlacement {
+  zTop: number;
+  zBottom: number;
+  zCenter: number;
+}
+
+function cavityPlacement(
+  layer: SceneLayerGeometry,
+  depth: number,
+  warnings: SceneWarning[],
+  context: { entityId: string; path: string },
+): CavityPlacement | null {
+  if (depth <= 0) {
+    warnings.push({
+      code: "depth-not-positive",
+      message: "Cavity depth must be positive",
+      entityId: context.entityId,
+      path: context.path,
+    });
+    return null;
+  }
+  if (depth > layer.thickness) {
+    warnings.push({
+      code: "depth-exceeds-layer-thickness",
+      message: "Cavity depth exceeds owning layer thickness",
+      entityId: context.entityId,
+      path: context.path,
+    });
+    return null;
+  }
+  const zTop = layer.zMax;
+  const zBottom = layer.zMax - depth;
+  return {
+    zTop,
+    zBottom,
+    zCenter: zTop - depth / 2,
+  };
 }
 
 function fromBox(

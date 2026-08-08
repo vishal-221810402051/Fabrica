@@ -65,6 +65,33 @@ Logical connections remain topology-only; physical route records carry route
 layer, intermediate waypoints, optional width, optional depth, and optional bend
 radius. Route endpoints are derived from physical ports and are not persisted.
 
+Phase 9A adds a lazy-loaded synchronized 3D preview mode beside the 2D editor:
+
+```text
+[2D Design] [3D Preview]
+```
+
+The 3D preview consumes rendering-neutral scene data from
+`geometry-core.projectToSceneGeometry(project)`. Three.js and React Three Fiber
+render that data only; they do not own engineering calculations, coordinate
+transforms, or persisted state.
+
+The 3D scene uses the Phase 8A CAD-space convention with chip
+bottom-left-bottom as origin, `+x` right, `+y` up in the chip plane, and `+z`
+upward through the layer stack. Layer order `0` remains the bottom layer.
+
+Chip preview uses a chip box plus internal cavity/removal-volume meshes. It
+does not use browser CSG and does not claim production CAD boolean
+subtraction. Component and route cavities are placed top-down within their
+owning layer. Incomplete routes render as nonmanufacturable guides and keep
+their missing-width/missing-depth warnings derived in UI state only. Route
+`bendRadius` renders as a sharp polyline approximation with an explicit viewer
+warning.
+
+3D camera mode, material mode, view preset, layer visibility, port marker
+visibility, and OrbitControls state are UI-only. They are not serialized,
+exported, or stored in the Project.
+
 ## Port Semantics And Branching
 
 Phase 7A makes port direction explicit in the editor projection before physical
@@ -168,11 +195,11 @@ editable content.
 
 ## Deferred
 
-Phase 8A does not implement drag-from-palette, minimap, automatic layout,
-automatic routing, obstacle avoidance, collision detection, topology
-validation, waste-path checks, hydraulic calculations, manufacturing-rule
-engines, 3D preview, CAD generation, STEP/STL export, GPT generation, backend
-persistence, authentication, collaboration, or simulation.
+Phase 9A does not implement drag-from-palette, minimap, split-screen editing,
+automatic layout, automatic routing, obstacle avoidance, browser CSG,
+collision detection, topology validation, waste-path checks, hydraulic
+calculations, manufacturing-rule engines, CAD generation, STEP/STL export, GPT
+generation, backend persistence, authentication, collaboration, or simulation.
 
 ## Validation
 

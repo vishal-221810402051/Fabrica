@@ -101,6 +101,25 @@ extension parameter behavior such as reset provenance and optional clear.
 jsdom UI tests should cover the inspector's explicit Apply workflow,
 undo/redo integration, and read-only multi-selection behavior.
 
+## Phase 9A Focus
+
+`geometry-core` tests must cover Project-to-scene projection, CAD-space
+coordinates, chip dimensions, layer Z, top-down cavity placement, component
+dimensions and rotation, splitter/merger geometry, full route polylines,
+rectangular route segment geometry, route Z placement, incomplete route
+classification, unsupported component classification, chip/layer-depth
+warnings, and bend-radius approximation warnings.
+
+Web tests must cover the lazy 3D workspace boundary, selection mapping, 2D to
+3D selected IDs, 3D component clicks back to editor selection, route clicks to
+connection selection, layer visibility state, view/material/camera state as
+UI-only data, no Three/R3F state serialized into the Project, and scene updates
+after Project geometry changes.
+
+jsdom tests must not claim WebGL rendering correctness. Actual WebGL render,
+orbit/pan/zoom, camera presets, picking feel, transparency, visual geometry,
+and layer toggles require manual browser smoke validation.
+
 ## Fixture Strategy
 
 Fixtures should be small, deterministic, versioned, and intentionally reviewed. They should cover canonical project-model examples, units, calculations, validation findings, layout constraints, CAD inputs, STEP/STL export expectations, and migration paths.

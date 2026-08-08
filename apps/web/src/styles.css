@@ -365,12 +365,99 @@ select {
   gap: 10px;
 }
 
+.workspace-mode-tabs,
+.segmented-control {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.workspace-mode-tabs {
+  margin-bottom: 10px;
+}
+
+.workspace-mode-tabs button.active,
+.segmented-control button.active,
+.viewer3d-fallback button.active {
+  border-color: #0f766e;
+  color: #0f766e;
+}
+
 .editor-canvas {
   border: 1px solid #c9d2df;
   border-radius: 8px;
   height: 560px;
   margin-top: 12px;
   overflow: hidden;
+}
+
+.viewer3d-workspace {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.viewer3d-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.viewer3d-toggle {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.viewer3d-layer-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.viewer3d-layer-controls label {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+}
+
+.viewer3d-canvas,
+.viewer3d-fallback {
+  background: #f8fafc;
+  border: 1px solid #c9d2df;
+  border-radius: 8px;
+  height: 560px;
+  overflow: hidden;
+}
+
+.viewer3d-fallback {
+  box-sizing: border-box;
+  color: #334155;
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.viewer3d-list {
+  align-content: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.viewer3d-warnings {
+  background: #fef3c7;
+  border-radius: 8px;
+  color: #92400e;
+  padding: 10px 12px;
+}
+
+.viewer3d-warnings ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
 }
 
 .editor-canvas-empty {

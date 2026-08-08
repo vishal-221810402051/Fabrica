@@ -50,6 +50,13 @@ endpoint positions, layer Z ranges, and CAD-space point transforms from the
 Project. React Flow positions remain display projection state and are converted
 back to physical millimetres only through validated editor mutations.
 
+Phase 9A extends the projection chain with
+`geometry-core.projectToSceneGeometry(project)`. The scene geometry is plain
+data: chip, layers, component cavity/removal volumes, physical routes, ports,
+physical readiness, and warnings. Three.js and React Three Fiber consume that
+plain data for browser preview only and do not become CAD or engineering
+authorities.
+
 ## AI Flow
 
 ```text
@@ -100,6 +107,11 @@ In Phase 8A, rendered chip boundaries, component footprints, physical ports,
 and physical routes are projections of persisted Project data. Route endpoints
 are derived from component ports. Route waypoints are persisted only as
 intermediate physical points.
+
+In Phase 9A, 3D preview meshes are derived from the same physical
+interpretation. Internal component and route meshes represent cavity/removal
+volumes inside a translucent chip preview. Incomplete physical routes remain
+guide geometry and are not rendered as manufacturable channels.
 
 ## CAD And Export Flow
 

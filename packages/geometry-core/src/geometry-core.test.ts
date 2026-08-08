@@ -10,6 +10,7 @@ import {
   getPhysicalPortPosition,
   isComponentInsideChip,
   mmToDisplay,
+  projectToSceneGeometry,
   snapPhysicalPoint,
   toCadPoint,
   validatePhysicalGeometry,
@@ -175,5 +176,144 @@ describe("geometry-core", () => {
       y: 7,
       z: 1,
     });
+  });
+
+  it("projects chip, layers, components, ports, and top-down cavity placement", () => {
+    const project = withComponent(baseProject(), "junction.splitter", 4, 2);
+    const scene = projectToSceneGeometry(project);
+
+    expect(scene.chip).toMatchObject({ width: 25, height: 10, depth: 1.5 });
+    expect(
+      scene.layers.map((layer) => [layer.layerId, layer.zMin, layer.zMax]),
+    ).toEqual([
+      ["layer_flow", 0, 1],
+      ["layer_control", 1, 1.5],
+    ]);
+    expect(scene.components[0]).toMatchObject({
+      definitionKey: "junction.splitter",
+      center: { x: 5, y: 7.5, z: 0.9 },
+      size: { width: 2, height: 1, depth: 0.2 },
+      zTop: 1,
+      zBottom: 0.8,
+    });
+    expect(
+      scene.ports.filter((port) => port.componentId === project.components[0]!.id),
+    ).toHaveLength(3);
+  });
+
+  it("projects complete rectangular route segments and joint fills", () => {
+    let project = withComponent(baseProject(), "junction.splitter", 1, 1);
+    project = withComponent(project, "junction.merger", 6, 1);
+    const connection = {
+      id: "connection_scene_route",
+      sourcePortId: project.ports.find((port) => port.name === "Output A")!.id,
+      targetPortId: project.ports.find((port) => port.name === "Input A")!.id,
+      metadata: {},
+    };
+    project = parseProject({
+      ...project,
+      connections: [connection],
+      physicalRoutes: [
+        {
+          id: "route_scene",
+          connectionId: connection.id,
+          layerId: "layer_flow",
+          waypoints: [
+            {
+              x: { value: 4, unit: "mm", provenance: { source: "user-entered" } },
+              y: { value: 3, unit: "mm", provenance: { source: "user-entered" } },
+            },
+          ],
+          width: { value: 0.2, unit: "mm", provenance: { source: "user-entered" } },
+          depth: { value: 0.1, unit: "mm", provenance: { source: "user-entered" } },
+          metadata: {},
+        },
+      ],
+    });
+
+    const scene = projectToSceneGeometry(project);
+    const route = scene.routes[0]!;
+
+    expect(route.physicalReady).toBe(true);
+    expect(route.segments).toHaveLength(2);
+    expect(route.jointBoxes).toHaveLength(1);
+    expect(route.segments[0]).toMatchObject({
+      width: 0.2,
+      depth: 0.1,
+      zTop: 1,
+      zBottom: 0.9,
+      center: { z: 0.95 },
+    });
+    expect(route.points.map((point) => point.z)).toEqual([1, 1, 1]);
+  });
+
+  it("classifies incomplete routes and bend-radius approximations as warnings", () => {
+    let project = withComponent(baseProject(), "junction.splitter", 1, 1);
+    project = withComponent(project, "junction.merger", 6, 1);
+    const connection = {
+      id: "connection_incomplete",
+      sourcePortId: project.ports.find((port) => port.name === "Output A")!.id,
+      targetPortId: project.ports.find((port) => port.name === "Input A")!.id,
+      metadata: {},
+    };
+    project = parseProject({
+      ...project,
+      connections: [connection],
+      physicalRoutes: [
+        {
+          id: "route_incomplete",
+          connectionId: connection.id,
+          layerId: "layer_flow",
+          waypoints: [],
+          bendRadius: {
+            value: 0.5,
+            unit: "mm",
+            provenance: { source: "user-entered" },
+          },
+          metadata: {},
+        },
+      ],
+    });
+
+    const scene = projectToSceneGeometry(project);
+
+    expect(scene.routes[0]!.physicalReady).toBe(false);
+    expect(scene.routes[0]!.segments).toEqual([]);
+    expect(scene.warnings.map((warning) => warning.code)).toEqual(
+      expect.arrayContaining([
+        "missing-route-width",
+        "missing-route-depth",
+        "incomplete-route",
+        "bend-radius-preview-approximation",
+      ]),
+    );
+  });
+
+  it("warns for unsupported components and chip/layer depth mismatch", () => {
+    const mismatched = parseProject({
+      ...baseProject(),
+      chip: {
+        ...baseProject().chip,
+        overallDimensions: {
+          ...baseProject().chip.overallDimensions,
+          depth: {
+            value: 2,
+            unit: "mm",
+            provenance: { source: "user-entered" },
+          },
+        },
+      },
+    });
+    const project = withComponent(mismatched, "valve.normally-open", 2, 2);
+    const scene = projectToSceneGeometry(project);
+
+    expect(scene.components).toEqual([]);
+    expect(scene.warnings.map((warning) => warning.code)).toEqual(
+      expect.arrayContaining([
+        "chip-layer-depth-mismatch",
+        "missing-footprint",
+        "unsupported-physical-component",
+      ]),
+    );
   });
 });

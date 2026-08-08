@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
 import {
   deleteSelection,
@@ -14,10 +14,17 @@ import { EditorToolbar } from "./EditorToolbar";
 import { LayerLaneControls } from "./LayerLaneControls";
 import { PropertiesPanel } from "./PropertiesPanel";
 
+const Viewer3DWorkspace = lazy(() =>
+  import("./Viewer3DWorkspace").then((module) => ({
+    default: module.Viewer3DWorkspace,
+  })),
+);
+
 export function EditorShell() {
   const project = useProjectStore((state) => state.project);
   const selectedComponentIds = useProjectStore((state) => state.selectedComponentIds);
   const selectedConnectionIds = useProjectStore((state) => state.selectedConnectionIds);
+  const [workspaceMode, setWorkspaceMode] = useState<"2d" | "3d">("2d");
   const fitRef = useRef<() => void>(() => undefined);
   const resetRef = useRef<() => void>(() => undefined);
 
@@ -91,6 +98,22 @@ export function EditorShell() {
       <div className="editor-grid-layout">
         <ComponentPalette />
         <section className="editor-workspace" aria-label="Editor canvas and status">
+          <div className="workspace-mode-tabs" aria-label="Workspace mode">
+            <button
+              type="button"
+              className={workspaceMode === "2d" ? "active" : ""}
+              onClick={() => setWorkspaceMode("2d")}
+            >
+              2D Design
+            </button>
+            <button
+              type="button"
+              className={workspaceMode === "3d" ? "active" : ""}
+              onClick={() => setWorkspaceMode("3d")}
+            >
+              3D Preview
+            </button>
+          </div>
           <EditorToolbar
             onFit={() => fitRef.current()}
             onReset={() => resetRef.current()}
@@ -98,14 +121,24 @@ export function EditorShell() {
             onDelete={deleteCurrentSelection}
           />
           <ConnectionFeedback />
-          <EditorCanvas
-            onFitReady={(fit) => {
-              fitRef.current = fit;
-            }}
-            onResetReady={(reset) => {
-              resetRef.current = reset;
-            }}
-          />
+          {workspaceMode === "2d" ? (
+            <EditorCanvas
+              onFitReady={(fit) => {
+                fitRef.current = fit;
+              }}
+              onResetReady={(reset) => {
+                resetRef.current = reset;
+              }}
+            />
+          ) : (
+            <Suspense
+              fallback={
+                <div className="editor-canvas-empty">Loading 3D preview...</div>
+              }
+            >
+              <Viewer3DWorkspace />
+            </Suspense>
+          )}
           <p className="muted">
             {project?.components.length ?? 0} components,{" "}
             {project?.connections.length ?? 0} connections. Selected:{" "}
