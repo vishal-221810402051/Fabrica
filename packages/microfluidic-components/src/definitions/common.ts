@@ -35,6 +35,7 @@ export function defineComponent(input: {
   icon: keyof typeof icons;
   fixedProperties?: ComponentDefinition["fixedProperties"];
   manufacturingMetadata?: Partial<ManufacturingMetadata>;
+  physicalGeometry?: ComponentDefinition["physicalGeometry"];
   allowsGenericCompatibility?: boolean;
 }): ComponentDefinition {
   const definition: ComponentDefinition = {
@@ -57,6 +58,7 @@ export function defineComponent(input: {
       rotationSymmetry: 2,
       minimumVisualSpacingHint: quantity(0.5, "mm"),
     },
+    ...(input.physicalGeometry ? { physicalGeometry: input.physicalGeometry } : {}),
     manufacturingMetadata: {
       ...defaultManufacturingMetadata,
       ...input.manufacturingMetadata,

@@ -1,4 +1,10 @@
 import type { Edge, Node } from "@xyflow/react";
+import {
+  deriveComponentFootprint,
+  deriveFullRoutePolyline,
+  mmToDisplay,
+  pointMmToDisplay,
+} from "geometry-core";
 import type { Component, Connection, Port, Project } from "project-model";
 import {
   DEFINITION_IDENTITY_EXTENSION,
@@ -38,6 +44,9 @@ export function deriveEditorProjection(
   const componentsById = new Map(project.components.map((item) => [item.id, item]));
   const portsById = new Map(project.ports.map((item) => [item.id, item]));
   const connectionsById = new Map(project.connections.map((item) => [item.id, item]));
+  const routesByConnectionId = new Map(
+    project.physicalRoutes.map((route) => [route.connectionId, route]),
+  );
   const layersById = new Map(project.layers.map((item) => [item.id, item]));
   const lanesById = new Map(project.lanes.map((item) => [item.id, item]));
   const connectionCountsByPortId = indexConnectionCounts(project.connections);
@@ -88,6 +97,7 @@ export function deriveEditorProjection(
       };
     });
     const laidOutPorts = layoutPortHandles(ports);
+    const footprint = deriveComponentFootprint(component);
     const data: EditorNodeData = {
       componentId: component.id,
       definitionKey: definition.key,
@@ -100,13 +110,17 @@ export function deriveEditorProjection(
       layerName: layer?.name ?? component.layerId,
       laneName: lane?.name ?? null,
       selected: transient.selectedComponentIds.includes(component.id),
+      physicalSize: footprint
+        ? { x: mmToDisplay(footprint.width), y: mmToDisplay(footprint.height) }
+        : { x: mmToDisplay(2), y: mmToDisplay(1) },
+      physicalReady: Boolean(footprint),
     };
     return {
       id: component.id,
       type: "microfluidic",
       position: {
-        x: component.position.x.value,
-        y: component.position.y.value,
+        x: mmToDisplay(component.position.x.value),
+        y: mmToDisplay(component.position.y.value),
       },
       data,
     };
@@ -130,8 +144,18 @@ export function deriveEditorProjection(
         `Missing connection component ${connection.id}`,
       );
     }
+    const route = routesByConnectionId.get(connection.id);
+    let routePoints: { x: number; y: number }[] = [];
+    if (route) {
+      try {
+        routePoints = deriveFullRoutePolyline(project, route).map(pointMmToDisplay);
+      } catch {
+        routePoints = [];
+      }
+    }
     return {
       id: connection.id,
+      type: "physicalRoute",
       source: sourcePort.componentId,
       target: targetPort.componentId,
       sourceHandle: createHandleId(connection.sourcePortId, "source"),
@@ -139,6 +163,9 @@ export function deriveEditorProjection(
       data: {
         connectionId: connection.id,
         selected: transient.selectedConnectionIds.includes(connection.id),
+        routePoints,
+        routeWidthPx: route?.width ? Math.max(2, mmToDisplay(route.width.value)) : 2,
+        physicalReady: Boolean(route?.width && route.depth),
       },
     };
   });

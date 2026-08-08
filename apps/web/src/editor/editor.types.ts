@@ -79,11 +79,16 @@ export interface EditorNodeData extends Record<string, unknown> {
   layerName: string;
   laneName: string | null;
   selected: boolean;
+  physicalSize: Point;
+  physicalReady: boolean;
 }
 
 export interface EditorEdgeData extends Record<string, unknown> {
   connectionId: ConnectionId;
   selected: boolean;
+  routePoints: Point[];
+  routeWidthPx: number;
+  physicalReady: boolean;
 }
 
 export interface InsertComponentOptions {

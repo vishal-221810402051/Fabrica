@@ -13,7 +13,7 @@ const {
   ProjectSchema,
 } = require("../dist/index.js");
 
-const expectedPath = resolve("schema/project.v0.1.0.schema.json");
+const expectedPath = resolve("schema/project.v0.2.0.schema.json");
 const temporaryPath = resolve(
   tmpdir(),
   `fabricgamma-project-schema-${process.pid}.json`,

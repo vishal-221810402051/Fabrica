@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
-    "build": "corepack pnpm --filter microfluidic-components build && corepack pnpm --filter project-model build && tsc -p tsconfig.json && vite build --configLoader runner",
+    "build": "corepack pnpm --filter microfluidic-components build && corepack pnpm --filter project-model build && corepack pnpm --filter geometry-core build && tsc -p tsconfig.json && vite build --configLoader runner",
     "lint": "eslint src --ext .ts,.tsx",
-    "typecheck": "corepack pnpm --filter microfluidic-components build && corepack pnpm --filter project-model build && tsc -p tsconfig.json --noEmit",
-    "test": "corepack pnpm --filter microfluidic-components build && corepack pnpm --filter project-model build && vitest run --configLoader runner"
+    "typecheck": "corepack pnpm --filter microfluidic-components build && corepack pnpm --filter project-model build && corepack pnpm --filter geometry-core build && tsc -p tsconfig.json --noEmit",
+    "test": "corepack pnpm --filter microfluidic-components build && corepack pnpm --filter project-model build && corepack pnpm --filter geometry-core build && vitest run --configLoader runner"
   },
   "dependencies": {
     "@xyflow/react": "12.11.2",
+    "geometry-core": "workspace:*",
     "idb": "8.0.3",
     "microfluidic-components": "workspace:*",
     "project-model": "workspace:*",

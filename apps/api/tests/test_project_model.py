@@ -39,7 +39,8 @@ def load_fixture(name: str) -> dict[str, Any]:
 def test_python_project_model_accepts_valid_fixtures(fixture_name: str) -> None:
     project = parse_project(load_fixture(fixture_name))
 
-    assert project.schemaVersion == "0.1.0"
+    assert project.schemaVersion == "0.2.0"
+    assert project.physicalRoutes == []
 
 
 @pytest.mark.parametrize(
@@ -106,3 +107,11 @@ def test_python_project_model_serializes_without_optional_nulls() -> None:
 
     assert "manufacturer" not in serialized["materials"][0]
     assert json.loads(rendered) == serialized
+
+
+def test_python_project_model_migrates_0_1_routes() -> None:
+    project = parse_project(load_fixture("minimal-valid-project.json"))
+    serialized = serialize_project(project)
+
+    assert serialized["schemaVersion"] == "0.2.0"
+    assert serialized["physicalRoutes"] == []

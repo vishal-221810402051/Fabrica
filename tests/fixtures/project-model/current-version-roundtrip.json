@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "id": "project_roundtrip",
   "name": "Current version roundtrip",
   "createdAt": "2026-08-05T00:00:00Z",
@@ -40,6 +40,7 @@
   "components": [],
   "ports": [],
   "connections": [],
+  "physicalRoutes": [],
   "fluids": [],
   "materials": [],
   "manufacturingProcesses": [],

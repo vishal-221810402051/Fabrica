@@ -107,6 +107,10 @@ ConnectionId = Annotated[
     StrictStr,
     Field(pattern=r"^connection_[A-Za-z0-9][A-Za-z0-9_-]*$"),
 ]
+RouteId = Annotated[
+    StrictStr,
+    Field(pattern=r"^route_[A-Za-z0-9][A-Za-z0-9_-]*$"),
+]
 FluidId = Annotated[
     StrictStr,
     Field(pattern=r"^fluid_[A-Za-z0-9][A-Za-z0-9_-]*$"),
@@ -236,6 +240,20 @@ class Connection(StrictProjectModel):
     id: ConnectionId
     sourcePortId: PortId
     targetPortId: PortId
+    metadata: StrictMetadata
+
+
+class PhysicalRoute(StrictProjectModel):
+    id: RouteId
+    connectionId: ConnectionId
+    layerId: LayerId
+    waypoints: list[Position2D]
+    width: Annotated[PositiveLengthQuantity | None, BeforeValidator(reject_null)] = None
+    depth: Annotated[PositiveLengthQuantity | None, BeforeValidator(reject_null)] = None
+    bendRadius: Annotated[
+        PositiveLengthQuantity | None,
+        BeforeValidator(reject_null),
+    ] = None
     metadata: StrictMetadata
 
 
@@ -421,7 +439,7 @@ class ExportConfiguration(StrictProjectModel):
 
 
 class Project(StrictProjectModel):
-    schemaVersion: Literal["0.1.0"]
+    schemaVersion: Literal["0.2.0"]
     id: ProjectId
     name: NonEmptyString
     createdAt: IsoString
@@ -432,6 +450,7 @@ class Project(StrictProjectModel):
     components: list[Component]
     ports: list[Port]
     connections: list[Connection]
+    physicalRoutes: list[PhysicalRoute]
     fluids: list[Fluid]
     materials: list[Material]
     manufacturingProcesses: list[ManufacturingProcess]

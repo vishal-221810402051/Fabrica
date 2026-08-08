@@ -14,6 +14,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "corepack pnpm --filter microfluidic-components build && corepack pnpm --filter project-model build && vitest run src"
+  },
+  "dependencies": {
+    "microfluidic-components": "workspace:*",
+    "project-model": "workspace:*"
   }
 }

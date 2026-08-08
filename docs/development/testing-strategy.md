@@ -78,10 +78,11 @@ does not persist React Flow viewport, node, edge, selection, or preview state.
 ## Phase 5 Focus
 
 Editor tests cover handle ID mapping, project-to-node projection, click-to-add,
-1 mm snapped movement, local connection compatibility, property updates through
-the Phase 4 instance API, layer/lane reassignment rejection when connections
-would become incompatible, duplication/deletion cleanup, keyboard guards, and a
-100-component projection scale case without fragile timing assertions.
+0.1 mm physical snapped movement, local connection compatibility, property
+updates through the Phase 4 instance API, layer/lane reassignment rejection when
+connections would become incompatible, duplication/deletion cleanup, keyboard
+guards, and a 100-component projection scale case without fragile timing
+assertions.
 
 ## Phase 6 Focus
 

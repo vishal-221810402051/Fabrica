@@ -11,6 +11,7 @@ import {
   type PortId,
   type Project,
 } from "project-model";
+import { deriveComponentFootprint, isComponentInsideChip } from "geometry-core";
 import {
   DEFINITION_IDENTITY_EXTENSION,
   checkPortCompatibility,
@@ -132,6 +133,7 @@ export function moveComponents(
   if (!changed) {
     return { project, movedComponentIds: [], changed: false };
   }
+  assertComponentsInsideChip({ ...project, components }, movedIds);
   return {
     project: parseProject(touchProject({ ...project, components }, now)),
     movedComponentIds: movedIds as ComponentId[],
@@ -159,10 +161,21 @@ export function createProjectConnection(
     targetPortId,
     metadata: {},
   }) as Connection;
-  assertNoIdCollisions(project, [connection.id]);
+  const physicalRoute = {
+    id: createStableId("route"),
+    connectionId: connection.id,
+    layerId: sharedRouteLayer(project, sourcePortId, targetPortId),
+    waypoints: [],
+    metadata: {},
+  };
+  assertNoIdCollisions(project, [connection.id, physicalRoute.id]);
   const nextProject = parseProject(
     touchProject(
-      { ...project, connections: [...project.connections, connection] },
+      {
+        ...project,
+        connections: [...project.connections, connection],
+        physicalRoutes: [...project.physicalRoutes, physicalRoute],
+      },
       now,
     ),
   );
@@ -184,7 +197,18 @@ export function deleteConnections(
   if (nextConnections.length === project.connections.length) {
     return project;
   }
-  return parseProject(touchProject({ ...project, connections: nextConnections }, now));
+  return parseProject(
+    touchProject(
+      {
+        ...project,
+        connections: nextConnections,
+        physicalRoutes: project.physicalRoutes.filter(
+          (route) => !deleteIds.has(route.connectionId),
+        ),
+      },
+      now,
+    ),
+  );
 }
 
 export function duplicateSelectedComponent(
@@ -264,6 +288,17 @@ export function deleteSelection(
             !ownedPortIds.has(connection.sourcePortId) &&
             !ownedPortIds.has(connection.targetPortId),
         ),
+        physicalRoutes: project.physicalRoutes.filter((route) => {
+          const connection = project.connections.find(
+            (item) => item.id === route.connectionId,
+          );
+          return (
+            connection &&
+            !connectionIds.has(connection.id) &&
+            !ownedPortIds.has(connection.sourcePortId) &&
+            !ownedPortIds.has(connection.targetPortId)
+          );
+        }),
         lanes: project.lanes.map((lane) => ({
           ...lane,
           componentIds: lane.componentIds.filter((id) => !componentIds.has(id)),
@@ -439,6 +474,7 @@ function replaceComponent(
   if (JSON.stringify(current) === JSON.stringify(component)) {
     return project;
   }
+  assertComponentsInsideChip({ ...project, components: [component] }, [component.id]);
   return parseProject(
     touchProject(
       {
@@ -450,6 +486,24 @@ function replaceComponent(
       now,
     ),
   );
+}
+
+function assertComponentsInsideChip(
+  project: Project,
+  componentIds: readonly string[],
+): void {
+  const ids = new Set(componentIds);
+  for (const component of project.components) {
+    if (!ids.has(component.id) || !deriveComponentFootprint(component)) {
+      continue;
+    }
+    if (!isComponentInsideChip(project, component)) {
+      throw editorError(
+        "EDITOR_COMPONENT_OUTSIDE_CHIP",
+        "Component footprint must remain inside the chip boundary",
+      );
+    }
+  }
 }
 
 function requireComponent(project: Project, componentId: ComponentId): Component {
@@ -489,6 +543,7 @@ function assertNoIdCollisions(project: Project, candidateIds: readonly string[])
     ...project.components.map((item) => item.id),
     ...project.ports.map((item) => item.id),
     ...project.connections.map((item) => item.id),
+    ...project.physicalRoutes.map((item) => item.id),
     ...project.fluids.map((item) => item.id),
     ...project.materials.map((item) => item.id),
     ...project.manufacturingProcesses.map((item) => item.id),
@@ -500,6 +555,31 @@ function assertNoIdCollisions(project: Project, candidateIds: readonly string[])
     }
     existing.add(id);
   }
+}
+
+function sharedRouteLayer(
+  project: Project,
+  sourcePortId: PortId,
+  targetPortId: PortId,
+): LayerId {
+  const sourcePort = project.ports.find((port) => port.id === sourcePortId);
+  const targetPort = project.ports.find((port) => port.id === targetPortId);
+  const sourceComponent = project.components.find(
+    (component) => component.id === sourcePort?.componentId,
+  );
+  const targetComponent = project.components.find(
+    (component) => component.id === targetPort?.componentId,
+  );
+  if (!sourceComponent || !targetComponent) {
+    throw editorError("EDITOR_PROJECT_INVALID", "Connection ports are not owned");
+  }
+  if (sourceComponent.layerId !== targetComponent.layerId) {
+    throw editorError(
+      "EDITOR_ROUTE_LAYER_UNRESOLVED",
+      "Phase 8A routes require same-layer endpoints",
+    );
+  }
+  return sourceComponent.layerId;
 }
 
 function touchProject(project: Project, updatedAt: string): Project {

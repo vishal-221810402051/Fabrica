@@ -21,6 +21,7 @@ export {
   PortIdSchema,
   ProcessIdSchema,
   ProjectIdSchema,
+  RouteIdSchema,
   ResultIdSchema,
   createStableId,
   idPrefixes,
@@ -36,6 +37,7 @@ export {
   type PortId,
   type ProcessId,
   type ProjectId,
+  type RouteId,
   type ResultId,
   type StableId,
 } from "./ids";
@@ -102,6 +104,7 @@ export {
 } from "./entities/manufacturing-process";
 export { MaterialSchema, type Material } from "./entities/material";
 export { PortSchema, type Port } from "./entities/port";
+export { PhysicalRouteSchema, type PhysicalRoute } from "./entities/physical-route";
 export {
   ValidationResultSchema,
   ValidationSeveritySchema,

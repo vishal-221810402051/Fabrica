@@ -152,6 +152,15 @@ export interface GeometryHints {
   minimumVisualSpacingHint?: QuantityParameterValue;
 }
 
+export interface PhysicalGeometryMetadata {
+  version: 1;
+  footprint: {
+    width: QuantityParameterValue;
+    height: QuantityParameterValue;
+    depth?: QuantityParameterValue;
+  };
+}
+
 export interface ManufacturingMetadata {
   capabilityTags: readonly string[];
   allowedProcessCategories: readonly string[];
@@ -178,6 +187,7 @@ export interface ComponentDefinition {
   layerPolicy: LayerPolicy;
   lanePolicy: LanePolicy;
   geometryHints: GeometryHints;
+  physicalGeometry?: PhysicalGeometryMetadata;
   manufacturingMetadata: ManufacturingMetadata;
   icon: IconDescriptor;
   deprecated: boolean;

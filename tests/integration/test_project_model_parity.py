@@ -13,6 +13,7 @@ from fabrica_api.project_model import (
     ProjectIntegrityError,
     ProjectModelValidationError,
     UnsupportedVersionError,
+    migrate_project_document,
     parse_project,
     serialize_project,
 )
@@ -24,7 +25,7 @@ SCHEMA_PATH = (
     / "packages"
     / "project-model"
     / "schema"
-    / "project.v0.1.0.schema.json"
+    / "project.v0.2.0.schema.json"
 )
 
 VALID_FIXTURES = [
@@ -67,10 +68,10 @@ def test_valid_fixtures_match_json_schema_and_python_model(
 ) -> None:
     payload = load_json(FIXTURE_ROOT / fixture_name)
 
-    schema_validator.validate(payload)
     serialized = serialize_project(parse_project(payload))
+    schema_validator.validate(serialized)
 
-    assert serialized["schemaVersion"] == "0.1.0"
+    assert serialized["schemaVersion"] == "0.2.0"
 
 
 @pytest.mark.parametrize("fixture_name", SCHEMA_INVALID_FIXTURES)
@@ -92,8 +93,9 @@ def test_integrity_invalid_fixtures_pass_schema_and_fail_integrity(
     fixture_name: str,
 ) -> None:
     payload = load_json(FIXTURE_ROOT / fixture_name)
+    migrated = migrate_project_document(payload)
 
-    schema_validator.validate(payload)
+    schema_validator.validate(migrated)
     with pytest.raises(ProjectIntegrityError):
         parse_project(payload)
 

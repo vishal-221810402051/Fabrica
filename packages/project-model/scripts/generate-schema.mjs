@@ -12,7 +12,7 @@ const {
   ProjectSchema,
 } = require("../dist/index.js");
 
-const outputPath = resolve("schema/project.v0.1.0.schema.json");
+const outputPath = resolve("schema/project.v0.2.0.schema.json");
 const prettierOptions = (await resolveConfig(outputPath)) ?? {};
 
 const schema = z.toJSONSchema(ProjectSchema, {

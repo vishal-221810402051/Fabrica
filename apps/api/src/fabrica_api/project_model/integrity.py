@@ -64,6 +64,8 @@ def validate_project_integrity(project: Project) -> list[IntegrityIssue]:
         track(port.id, f"ports.{index}.id")
     for index, connection in enumerate(project.connections):
         track(connection.id, f"connections.{index}.id")
+    for index, route in enumerate(project.physicalRoutes):
+        track(route.id, f"physicalRoutes.{index}.id")
     for index, fluid in enumerate(project.fluids):
         track(fluid.id, f"fluids.{index}.id")
     for index, material in enumerate(project.materials):
@@ -77,6 +79,7 @@ def validate_project_integrity(project: Project) -> list[IntegrityIssue]:
     lanes = _index_by_id(project.lanes)
     components = _index_by_id(project.components)
     ports = _index_by_id(project.ports)
+    connections = _index_by_id(project.connections)
     fluids = _index_by_id(project.fluids)
     materials = _index_by_id(project.materials)
 
@@ -84,6 +87,7 @@ def validate_project_integrity(project: Project) -> list[IntegrityIssue]:
     lane_ids = set(lanes)
     component_ids = set(components)
     port_ids = set(ports)
+    connection_ids = set(connections)
     fluid_ids = set(fluids)
     material_ids = set(materials)
 
@@ -196,6 +200,24 @@ def validate_project_integrity(project: Project) -> list[IntegrityIssue]:
             "missing-connection-target-port",
             f"connections.{connection_index}.targetPortId",
             connection.id,
+        )
+
+    for route_index, route in enumerate(project.physicalRoutes):
+        _require_reference(
+            issues,
+            connection_ids,
+            route.connectionId,
+            "missing-route-connection-reference",
+            f"physicalRoutes.{route_index}.connectionId",
+            route.id,
+        )
+        _require_reference(
+            issues,
+            layer_ids,
+            route.layerId,
+            "missing-route-layer-reference",
+            f"physicalRoutes.{route_index}.layerId",
+            route.id,
         )
 
     return issues

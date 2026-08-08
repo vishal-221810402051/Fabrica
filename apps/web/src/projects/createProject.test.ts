@@ -12,8 +12,9 @@ describe("project creation", () => {
     });
 
     expect(projectModel.parseProject(project)).toEqual(project);
-    expect(project.schemaVersion).toBe("0.1.0");
+    expect(project.schemaVersion).toBe("0.2.0");
     expect(project.components).toHaveLength(0);
+    expect(project.physicalRoutes).toEqual([]);
   });
 
   it("duplicates as a distinct project and rewrites contained entity references", () => {

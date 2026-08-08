@@ -1,6 +1,30 @@
 import { fluidPort } from "../ports";
+import { quantity } from "../parameters";
 import type { ComponentDefinition } from "../types";
 import { defineComponent } from "./common";
+
+const junctionPhysicalGeometry = {
+  version: 1,
+  footprint: {
+    width: quantity(2, "mm"),
+    height: quantity(1, "mm"),
+    depth: quantity(0.2, "mm"),
+  },
+} as const;
+
+function physicalPort(
+  key: string,
+  name: string,
+  direction: "input" | "output",
+  anchor: { x: number; y: number },
+) {
+  return {
+    ...fluidPort(key, name, direction, "generic", anchor),
+    metadata: {
+      physicalAnchor: anchor,
+    },
+  };
+}
 
 const threePort = [
   fluidPort("in-a", "Input A", "input", "generic", { x: 0, y: 0.25 }),
@@ -39,10 +63,11 @@ export const junctionDefinitions: readonly ComponentDefinition[] = [
     category: "routing",
     tags: ["junction", "splitter"],
     ports: [
-      fluidPort("in", "Input", "input", "generic", { x: 0, y: 0.5 }),
-      fluidPort("out-a", "Output A", "output", "generic", { x: 1, y: 0.25 }),
-      fluidPort("out-b", "Output B", "output", "generic", { x: 1, y: 0.75 }),
+      physicalPort("in", "Input", "input", { x: 0, y: 0.5 }),
+      physicalPort("out-a", "Output A", "output", { x: 1, y: 0.25 }),
+      physicalPort("out-b", "Output B", "output", { x: 1, y: 0.75 }),
     ],
+    physicalGeometry: junctionPhysicalGeometry,
     icon: "junction",
     fixedProperties: { category: "splitter" },
   }),
@@ -53,7 +78,12 @@ export const junctionDefinitions: readonly ComponentDefinition[] = [
     persistedKind: "junction",
     category: "routing",
     tags: ["junction", "merger"],
-    ports: threePort,
+    ports: [
+      physicalPort("in-a", "Input A", "input", { x: 0, y: 0.25 }),
+      physicalPort("in-b", "Input B", "input", { x: 0, y: 0.75 }),
+      physicalPort("out", "Output", "output", { x: 1, y: 0.5 }),
+    ],
+    physicalGeometry: junctionPhysicalGeometry,
     icon: "junction",
     fixedProperties: { category: "merger" },
   }),

@@ -37,6 +37,7 @@ export function createProject(options: { name?: string; now?: string } = {}): Pr
     components: [],
     ports: [],
     connections: [],
+    physicalRoutes: [],
     fluids: [],
     materials: [
       {

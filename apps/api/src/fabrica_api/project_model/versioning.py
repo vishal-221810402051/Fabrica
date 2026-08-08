@@ -6,10 +6,22 @@ from typing import Any, cast
 
 from fabrica_api.project_model.errors import FutureVersionError, UnsupportedVersionError
 
-CURRENT_SCHEMA_VERSION = "0.1.0"
+CURRENT_SCHEMA_VERSION = "0.2.0"
 
 MigrationFunction = Callable[[Any], Any]
 migration_registry: dict[str, MigrationFunction] = {}
+
+
+def _migrate_0_1_0_to_0_2_0(input_value: Any) -> Any:
+    if not isinstance(input_value, dict):
+        return input_value
+    project_document = cast(dict[str, Any], input_value)
+    project_document["schemaVersion"] = "0.2.0"
+    project_document["physicalRoutes"] = []
+    return project_document
+
+
+migration_registry["0.1.0"] = _migrate_0_1_0_to_0_2_0
 
 
 def compare_schema_versions(left: str, right: str) -> int:

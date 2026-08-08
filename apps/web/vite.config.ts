@@ -12,6 +12,9 @@ export default defineConfig({
       "microfluidic-components": fileURLToPath(
         new URL("../../packages/microfluidic-components/src/index.ts", import.meta.url),
       ),
+      "geometry-core": fileURLToPath(
+        new URL("../../packages/geometry-core/src/index.ts", import.meta.url),
+      ),
       units: fileURLToPath(
         new URL("../../packages/units/src/index.ts", import.meta.url),
       ),

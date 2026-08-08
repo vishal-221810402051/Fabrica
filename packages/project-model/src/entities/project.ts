@@ -10,6 +10,7 @@ import { LayerSchema } from "./layer";
 import { ManufacturingProcessSchema } from "./manufacturing-process";
 import { MaterialSchema } from "./material";
 import { PortSchema } from "./port";
+import { PhysicalRouteSchema } from "./physical-route";
 import { ValidationResultSchema } from "./validation-result";
 import { ProjectIdSchema } from "../ids";
 import { ExtensionsSchema, ISO8601StringSchema, MetadataSchema } from "../metadata";
@@ -28,6 +29,7 @@ export const ProjectSchema = z
     components: z.array(ComponentSchema),
     ports: z.array(PortSchema),
     connections: z.array(ConnectionSchema),
+    physicalRoutes: z.array(PhysicalRouteSchema),
     fluids: z.array(FluidSchema),
     materials: z.array(MaterialSchema),
     manufacturingProcesses: z.array(ManufacturingProcessSchema),

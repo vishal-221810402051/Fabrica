@@ -385,11 +385,13 @@ select {
 .micro-node {
   background: #ffffff;
   border: 1px solid #8ca3bd;
-  border-radius: 8px;
+  border-radius: 4px;
+  box-sizing: border-box;
   box-shadow: 0 6px 20px rgb(29 41 57 / 10%);
-  min-height: 96px;
-  min-width: 180px;
-  padding: 12px;
+  min-height: 24px;
+  min-width: 24px;
+  overflow: hidden;
+  padding: 6px;
 }
 
 .micro-node-selected {
@@ -400,38 +402,74 @@ select {
 .micro-node header {
   align-items: center;
   display: flex;
-  gap: 10px;
+  gap: 6px;
+}
+
+.micro-node strong {
+  display: block;
+  font-size: 0.72rem;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .micro-node header span {
   color: #64748b;
   display: block;
-  font-size: 0.78rem;
+  font-size: 0.65rem;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .node-icon {
   fill: none;
-  height: 36px;
+  flex: 0 0 auto;
+  height: 20px;
   stroke: #0f766e;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
-  width: 36px;
+  width: 20px;
 }
 
 .node-badges {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 10px;
+  margin-top: 5px;
 }
 
 .node-badges span {
   background: #eef6f4;
   border-radius: 999px;
   color: #0f4f4a;
-  font-size: 0.72rem;
-  padding: 3px 7px;
+  font-size: 0.58rem;
+  padding: 2px 4px;
+}
+
+.micro-node-physical-pending {
+  border-style: dashed;
+}
+
+.chip-boundary-node {
+  background:
+    linear-gradient(rgb(15 118 110 / 8%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(15 118 110 / 8%) 1px, transparent 1px);
+  background-size: 24px 24px;
+  border: 2px solid #334155;
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+
+.physical-route-edge {
+  stroke: #2563eb;
+}
+
+.physical-route-edge-selected {
+  stroke: #0f766e;
 }
 
 .port-handle {

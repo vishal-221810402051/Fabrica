@@ -27,6 +27,13 @@ describe("component registry", () => {
       "channel.rectangular",
     ]);
     expect(hasComponentDefinition("valve.normally-open")).toBe(true);
+    expect(getComponentDefinition("junction.splitter").physicalGeometry).toMatchObject({
+      version: 1,
+      footprint: {
+        width: { value: 2, unit: "mm" },
+        height: { value: 1, unit: "mm" },
+      },
+    });
     expect(getComponentDefinition("junction.manifold")).toMatchObject({
       deprecated: true,
       replacementKey: "junction.splitter",

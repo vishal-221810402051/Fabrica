@@ -2,15 +2,15 @@
 
 Authoritative versioned persisted project model for Fabricgamma.
 
-Phase 2 introduces schema version `0.1.0`, strict Zod runtime validation,
+Phase 8A defines schema version `0.2.0`, strict Zod runtime validation,
 stable identifier formats, normalized quantity shapes, provenance metadata,
-schema-version handling, current-version roundtrip support, and referential
-integrity checks for the initial model graph.
+schema-version migration, current-version roundtrip support, referential
+integrity checks, and persisted physical route records.
 
 The generated JSON Schema artifact is:
 
 ```text
-packages/project-model/schema/project.v0.1.0.schema.json
+packages/project-model/schema/project.v0.2.0.schema.json
 ```
 
 The schema is generated from the Zod 4 model with `z.toJSONSchema(...)` and
@@ -30,6 +30,6 @@ corepack pnpm --filter project-model schema:check
 ## Scope boundary
 
 The package deliberately does not implement calculations, manufacturing rules,
-layout derivation, persistence, CAD generation, or Phase 3 commands. Validation
+layout derivation, persistence, CAD generation, or editor commands. Validation
 is limited to persisted schema correctness, version compatibility, unit
 normalization, and current referential integrity.

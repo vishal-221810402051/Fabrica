@@ -40,13 +40,30 @@ to the same persisted port. Connection edge IDs equal persisted connection IDs.
 
 ## Coordinates And Viewport
 
-One canvas unit equals one millimetre. The Phase 5 grid snaps committed
-positions to 1 mm. Negative coordinates are permitted. Chip-boundary
-enforcement, collision detection, automatic placement, and automatic routing
-are deferred.
+Phase 8A separates physical millimetres from React Flow display coordinates.
+Persisted component `position.x` and `position.y` are the physical left/top
+edge of the unrotated footprint in millimetres. The editor coordinate system
+uses the chip top-left as origin, positive x to the right, and positive y down.
+
+React Flow node positions are display coordinates derived from physical
+millimetres through an explicit scale in `geometry-core`. Drag stop converts
+display coordinates back to millimetres, snaps to the 0.1 mm physical grid, and
+then mutates the Project. The 1 mm major grid is visual only.
+
+Components with an authoritative footprint are rejected when a moved or rotated
+footprint would leave the chip boundary. Rotated boundary checks use the
+footprint corners around the component center. Unsupported components render as
+not physical-layout-ready rather than receiving invented dimensions. Collision
+detection, automatic placement, and automatic routing are deferred.
 
 Viewport zoom and pan are session-only. They are not exported and do not trigger
 autosave.
+
+Phase 8A also projects a chip boundary, physical component footprints, physical
+port positions, and physical route polylines from the authoritative Project.
+Logical connections remain topology-only; physical route records carry route
+layer, intermediate waypoints, optional width, optional depth, and optional bend
+radius. Route endpoints are derived from physical ports and are not persisted.
 
 ## Port Semantics And Branching
 
@@ -151,11 +168,11 @@ editable content.
 
 ## Deferred
 
-Phase 6 does not implement drag-from-palette, minimap, automatic layout,
-automatic routing, obstacle avoidance, topology validation, waste-path checks,
-hydraulic calculations, manufacturing-rule engines, 3D preview, CAD generation,
-STEP/STL export, GPT generation, backend persistence, authentication,
-collaboration, or simulation.
+Phase 8A does not implement drag-from-palette, minimap, automatic layout,
+automatic routing, obstacle avoidance, collision detection, topology
+validation, waste-path checks, hydraulic calculations, manufacturing-rule
+engines, 3D preview, CAD generation, STEP/STL export, GPT generation, backend
+persistence, authentication, collaboration, or simulation.
 
 ## Validation
 

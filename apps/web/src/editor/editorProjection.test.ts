@@ -37,10 +37,13 @@ describe("editor projection", () => {
     });
 
     expect(projection.nodes[0]!.id).toBe(connected.components[0]!.id);
+    expect(projection.nodes[0]!.position).toEqual({ x: 24, y: 48 });
     expect(projection.edges[0]!.id).toBe(connected.connections[0]!.id);
+    expect(projection.edges[0]!.type).toBe("physicalRoute");
     expect(projection.edges[0]!.sourceHandle).toBe(createHandleId(source.id, "source"));
     expect(projection.edges[0]!.targetHandle).toBe(createHandleId(target.id, "target"));
     expect(projection.nodes[0]!.data.ports.length).toBe(2);
+    expect(projection.edges[0]!.data!.routePoints).toHaveLength(2);
     expect(JSON.stringify(connected)).toBe(before);
   });
 

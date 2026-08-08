@@ -8,7 +8,19 @@ export function MicrofluidicNode(props: NodeProps) {
   const data = props.data as EditorNodeData;
   return (
     <article
-      className={data.selected ? "micro-node micro-node-selected" : "micro-node"}
+      className={[
+        "micro-node",
+        data.selected ? "micro-node-selected" : "",
+        data.physicalReady
+          ? "micro-node-physical-ready"
+          : "micro-node-physical-pending",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={{
+        width: data.physicalSize.x,
+        height: data.physicalSize.y,
+      }}
       aria-label={`${data.label} ${data.definitionLabel}`}
       onClick={() => {
         projectStore.getState().setSelectedComponents([props.id]);

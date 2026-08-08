@@ -8,6 +8,7 @@ export const idPrefixes = [
   "component",
   "port",
   "connection",
+  "route",
   "fluid",
   "material",
   "process",
@@ -34,6 +35,7 @@ export const LaneIdSchema = stableIdSchema("lane");
 export const ComponentIdSchema = stableIdSchema("component");
 export const PortIdSchema = stableIdSchema("port");
 export const ConnectionIdSchema = stableIdSchema("connection");
+export const RouteIdSchema = stableIdSchema("route");
 export const FluidIdSchema = stableIdSchema("fluid");
 export const MaterialIdSchema = stableIdSchema("material");
 export const ProcessIdSchema = stableIdSchema("process");
@@ -46,6 +48,7 @@ export type LaneId = z.infer<typeof LaneIdSchema>;
 export type ComponentId = z.infer<typeof ComponentIdSchema>;
 export type PortId = z.infer<typeof PortIdSchema>;
 export type ConnectionId = z.infer<typeof ConnectionIdSchema>;
+export type RouteId = z.infer<typeof RouteIdSchema>;
 export type FluidId = z.infer<typeof FluidIdSchema>;
 export type MaterialId = z.infer<typeof MaterialIdSchema>;
 export type ProcessId = z.infer<typeof ProcessIdSchema>;

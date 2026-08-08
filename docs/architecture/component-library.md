@@ -23,7 +23,13 @@ Python parity models, and does not own saved-project structure.
 
 A component definition describes the reusable catalogue entry: key, display
 name, persisted kind, category, parameters, port templates, policies,
-geometry hints, manufacturing metadata, and icon descriptor.
+geometry hints, optional physical geometry metadata, manufacturing metadata,
+and icon descriptor.
+
+Geometry hints remain schematic UI hints. They are not CAD authority. Phase 8A
+adds optional `physicalGeometry` metadata for definition families whose
+physical footprint is versioned by the registry instead of stored on the
+Project component instance.
 
 A component instance is a project-model `Component` created by the factory.
 Instances persist stable definition identity under
@@ -107,6 +113,18 @@ continues to resolve it. The definition is marked deprecated with
 palette insertion. Compatibility treats the legacy shared port as effectively
 capped for new connections and returns a legacy capacity issue once it already
 has a connection, directing new designs toward splitter or merger components.
+
+Phase 8A gives `junction.splitter` and `junction.merger` explicit versioned
+physical geometry metadata and physical port anchors. These fixed registry
+defaults are used only for the physical geometry foundation. The legacy
+`junction.manifold` is not promoted into the preferred physical branching
+mechanism.
+
+Reservoir and chamber footprints are derived from their first-class Project
+dimensions. Channel footprints are derived from their channel cross-section
+dimensions. Components without first-class dimensions or registry physical
+metadata are not physical-layout-ready and must not receive fabricated
+footprints.
 
 ## Layer And Lane Policies
 

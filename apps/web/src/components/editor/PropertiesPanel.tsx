@@ -10,9 +10,13 @@ import {
 import type {
   Component,
   ComponentId,
+  Connection,
+  ConnectionId,
   ManufacturingProcess,
   Layer,
+  LengthQuantity,
   Material,
+  PhysicalRoute,
   Port,
   ProcessId,
   Project,
@@ -34,6 +38,7 @@ import {
   updatePortProperties,
   updateProjectName,
 } from "../../editor/propertyActions";
+import { updatePhysicalRouteProperties } from "../../editor/physicalRouteActions";
 import {
   compatibleUnits,
   formatDisplayNumber,
@@ -184,15 +189,9 @@ function SelectionInspector(props: {
     const connection = props.project.connections.find(
       (item) => item.id === props.selectedConnectionIds[0],
     );
-    return (
-      <section className="property-group" aria-label="Connection properties">
-        <h3>Connection</h3>
-        <p className="muted">{connection?.id}</p>
-        <p className="muted">
-          {connection?.sourcePortId} to {connection?.targetPortId}
-        </p>
-      </section>
-    );
+    return connection ? (
+      <ConnectionEditor project={props.project} connection={connection} />
+    ) : null;
   }
   if (!props.component) {
     return (
@@ -202,6 +201,82 @@ function SelectionInspector(props: {
     );
   }
   return <ComponentEditor project={props.project} component={props.component} />;
+}
+
+function ConnectionEditor(props: { project: Project; connection: Connection }) {
+  const route = props.project.physicalRoutes.find(
+    (candidate) => candidate.connectionId === props.connection.id,
+  );
+  return (
+    <ConnectionRouteEditor
+      project={props.project}
+      connection={props.connection}
+      route={route}
+      key={route?.id ?? props.connection.id}
+    />
+  );
+}
+
+function ConnectionRouteEditor(props: {
+  project: Project;
+  connection: Connection;
+  route: PhysicalRoute | undefined;
+}) {
+  const [width, setWidth] = useState(() => optionalLengthDraft(props.route?.width));
+  const [depth, setDepth] = useState(() => optionalLengthDraft(props.route?.depth));
+  const [bendRadius, setBendRadius] = useState(() =>
+    optionalLengthDraft(props.route?.bendRadius),
+  );
+  const [errors, setErrors] = useState<FieldError[]>([]);
+  return (
+    <FormSection
+      title="Connection route"
+      errors={errors}
+      onApply={() =>
+        applyProjectUpdate(setErrors, "Update route properties", () =>
+          updatePhysicalRouteProperties(
+            props.project,
+            props.connection.id as ConnectionId,
+            {
+              width: optionalQuantity(width, "Width"),
+              depth: optionalQuantity(depth, "Depth"),
+              bendRadius: optionalQuantity(bendRadius, "Bend radius"),
+            },
+          ),
+        )
+      }
+    >
+      <ReadOnly label="Connection ID" value={props.connection.id} />
+      <ReadOnly
+        label="Ports"
+        value={`${props.connection.sourcePortId} to ${props.connection.targetPortId}`}
+      />
+      <ReadOnly label="Route ID" value={props.route?.id ?? "created on apply"} />
+      <ReadOnly label="Route layer" value={props.route?.layerId ?? "endpoint layer"} />
+      <QuantityField
+        label="Width"
+        draft={width}
+        dimension="length"
+        onChange={setWidth}
+      />
+      <QuantityField
+        label="Depth"
+        draft={depth}
+        dimension="length"
+        onChange={setDepth}
+      />
+      <QuantityField
+        label="Bend radius"
+        draft={bendRadius}
+        dimension="length"
+        onChange={setBendRadius}
+      />
+      <p className="muted">
+        Route endpoints are derived from component ports. Intermediate waypoints are not
+        edited in Phase 8A.
+      </p>
+    </FormSection>
+  );
 }
 
 function ProjectEditor(props: { project: Project }) {
@@ -1018,6 +1093,26 @@ function requiredQuantity(draft: QuantityDraft, dimension: Dimension, label: str
   } catch (error) {
     throw new Error(`${label}: ${error instanceof Error ? error.message : error}`);
   }
+}
+
+function optionalQuantity(draft: QuantityDraft, label: string): LengthQuantity | null {
+  if (!draft.text.trim()) {
+    return null;
+  }
+  try {
+    return parseQuantityDraft(draft, "length", {
+      required: false,
+      positive: true,
+    }) as LengthQuantity | null;
+  } catch (error) {
+    throw new Error(`${label}: ${error instanceof Error ? error.message : error}`);
+  }
+}
+
+function optionalLengthDraft(quantity: PhysicalRoute["width"]): QuantityDraft {
+  return quantity
+    ? quantityDraftFromCanonical(quantity, "mm", "length")
+    : { text: "", displayUnit: "mm" };
 }
 
 function parseInteger(text: string, label: string): number {

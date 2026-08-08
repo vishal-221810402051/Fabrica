@@ -62,6 +62,9 @@ importers:
       '@xyflow/react':
         specifier: 12.11.2
         version: 12.11.2(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      geometry-core:
+        specifier: workspace:*
+        version: link:../../packages/geometry-core
       idb:
         specifier: 8.0.3
         version: 8.0.3
@@ -90,7 +93,14 @@ importers:
 
   packages/calculations: {}
 
-  packages/geometry-core: {}
+  packages/geometry-core:
+    dependencies:
+      microfluidic-components:
+        specifier: workspace:*
+        version: link:../microfluidic-components
+      project-model:
+        specifier: workspace:*
+        version: link:../project-model
 
   packages/layout-engine: {}
 

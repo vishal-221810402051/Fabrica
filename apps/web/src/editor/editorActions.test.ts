@@ -28,8 +28,8 @@ describe("editor project actions", () => {
 
     expect(result.project.components).toHaveLength(1);
     expect(result.project.ports).toHaveLength(2);
-    expect(result.project.components[0]!.position.x.value).toBe(1);
-    expect(result.project.components[0]!.position.y.value).toBe(3);
+    expect(result.project.components[0]!.position.x.value).toBe(1.2);
+    expect(result.project.components[0]!.position.y.value).toBe(2.6);
     expect(project.components).toHaveLength(0);
   });
 
@@ -44,7 +44,7 @@ describe("editor project actions", () => {
     ).toThrow(EditorActionError);
   });
 
-  it("moves selected components once on drag stop and allows negative coordinates", () => {
+  it("moves selected components once on drag stop and rejects outside-chip positions", () => {
     const base = makeProject();
     const inserted = insertComponentFromDefinition(base, {
       definitionKey: "channel.rectangular",
@@ -53,15 +53,18 @@ describe("editor project actions", () => {
     }).project;
     const componentId = inserted.components[0]!.id;
     const moved = moveComponents(inserted, {
-      [componentId]: { x: -1.4, y: 2.2 },
+      [componentId]: { x: 2.4, y: 2.2 },
     });
 
     expect(moved.changed).toBe(true);
-    expect(moved.project.components[0]!.position.x.value).toBe(-1);
-    expect(moved.project.components[0]!.position.y.value).toBe(2);
+    expect(moved.project.components[0]!.position.x.value).toBe(2.4);
+    expect(moved.project.components[0]!.position.y.value).toBe(2.2);
     expect(
-      moveComponents(moved.project, { [componentId]: { x: -1, y: 2 } }).changed,
+      moveComponents(moved.project, { [componentId]: { x: 2.4, y: 2.2 } }).changed,
     ).toBe(false);
+    expect(() =>
+      moveComponents(moved.project, { [componentId]: { x: -0.1, y: 2 } }),
+    ).toThrow(EditorActionError);
   });
 
   it("creates compatible connections and rejects incompatible duplicates", () => {
@@ -88,6 +91,12 @@ describe("editor project actions", () => {
 
     expect(connected.connection?.id).toMatch(/^connection_/);
     expect(connected.project.connections).toHaveLength(1);
+    expect(connected.project.physicalRoutes).toHaveLength(1);
+    expect(connected.project.physicalRoutes[0]).toMatchObject({
+      connectionId: connected.connection?.id,
+      layerId: base.layers[0]!.id,
+      waypoints: [],
+    });
     const duplicate = createProjectConnection(connected.project, source.id, target.id);
     expect(duplicate.project.connections).toHaveLength(1);
     expect(duplicate.issues.map((issue) => issue.code)).toContain(

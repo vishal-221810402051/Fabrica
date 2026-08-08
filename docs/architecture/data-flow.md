@@ -43,6 +43,13 @@ React Flow nodes, handles, and edges. User interactions become narrow validated
 project mutations through Phase 3 history and autosave. React Flow viewport,
 selection, drag preview, and connection preview state are not serialized.
 
+Phase 8A adds first-class physical route records to the authoritative Project.
+Logical connections still describe topology only. `geometry-core` derives
+physical footprints, physical port positions, rendered route polylines, route
+endpoint positions, layer Z ranges, and CAD-space point transforms from the
+Project. React Flow positions remain display projection state and are converted
+back to physical millimetres only through validated editor mutations.
+
 ## AI Flow
 
 ```text
@@ -88,6 +95,11 @@ remain future validation responsibilities.
 ## Visualization Flow
 
 2D layout and 3D preview are derived from the authoritative model and deterministic layout or geometry inputs. React Flow owns visual graph interaction, not engineering connectivity authority. React Three Fiber and Three.js own visualization, not production CAD.
+
+In Phase 8A, rendered chip boundaries, component footprints, physical ports,
+and physical routes are projections of persisted Project data. Route endpoints
+are derived from component ports. Route waypoints are persisted only as
+intermediate physical points.
 
 ## CAD And Export Flow
 

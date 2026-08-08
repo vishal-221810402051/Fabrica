@@ -96,10 +96,37 @@ describe("project integrity", () => {
   );
 
   it("returns structured duplicate-id issues", () => {
-    const parsed = ProjectSchema.parse(loadFixture("duplicate-id.json"));
+    const parsed = ProjectSchema.parse(
+      migrateProjectDocument(loadFixture("duplicate-id.json")),
+    );
     const issues = validateProjectIntegrity(parsed);
 
     expect(issues).toContainEqual(expect.objectContaining({ code: "duplicate-id" }));
+  });
+
+  it("rejects physical routes with missing references", () => {
+    const fixture = parseProject(loadFixture("minimal-valid-project.json"));
+    const candidate = ProjectSchema.parse({
+      ...fixture,
+      physicalRoutes: [
+        {
+          id: "route_missing_refs",
+          connectionId: "connection_missing",
+          layerId: "layer_missing",
+          waypoints: [],
+          metadata: {},
+        },
+      ],
+    });
+
+    const issues = validateProjectIntegrity(candidate);
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "missing-route-connection-reference" }),
+        expect.objectContaining({ code: "missing-route-layer-reference" }),
+      ]),
+    );
   });
 });
 
@@ -113,10 +140,19 @@ describe("serialization and versioning", () => {
   });
 
   it("preserves stable identifiers during current-version migration pass-through", () => {
-    const input = loadFixture("minimal-valid-project.json");
+    const input = loadFixture("current-version-roundtrip.json");
     const migrated = migrateProjectDocument(input);
 
     expect(migrated).not.toBe(input);
+    expect((migrated as { id: string }).id).toBe("project_roundtrip");
+  });
+
+  it("migrates Phase 7 project documents to physical route storage", () => {
+    const input = loadFixture("minimal-valid-project.json");
+    const migrated = migrateProjectDocument(input);
+
+    expect((migrated as { schemaVersion: string }).schemaVersion).toBe("0.2.0");
+    expect((migrated as { physicalRoutes: unknown[] }).physicalRoutes).toEqual([]);
     expect((migrated as { id: string }).id).toBe("project_minimal");
   });
 

@@ -54,6 +54,9 @@ export function validateProjectIntegrity(project: Project): IntegrityIssue[] {
   project.connections.forEach((connection, index) =>
     track(connection.id, `connections.${index}.id`),
   );
+  project.physicalRoutes.forEach((route, index) =>
+    track(route.id, `physicalRoutes.${index}.id`),
+  );
   project.fluids.forEach((fluid, index) => track(fluid.id, `fluids.${index}.id`));
   project.materials.forEach((material, index) =>
     track(material.id, `materials.${index}.id`),
@@ -69,6 +72,7 @@ export function validateProjectIntegrity(project: Project): IntegrityIssue[] {
   const lanes = indexById(project.lanes);
   const components = indexById(project.components);
   const ports = indexById(project.ports);
+  const connections = indexById(project.connections);
   const fluids = indexById(project.fluids);
   const materials = indexById(project.materials);
 
@@ -76,6 +80,7 @@ export function validateProjectIntegrity(project: Project): IntegrityIssue[] {
   const laneIds = new Set(lanes.keys());
   const componentIds = new Set(components.keys());
   const portIds = new Set(ports.keys());
+  const connectionIds = new Set(connections.keys());
   const fluidIds = new Set(fluids.keys());
   const materialIds = new Set(materials.keys());
 
@@ -194,6 +199,25 @@ export function validateProjectIntegrity(project: Project): IntegrityIssue[] {
       "missing-connection-target-port",
       `connections.${connectionIndex}.targetPortId`,
       connection.id,
+    );
+  });
+
+  project.physicalRoutes.forEach((route, routeIndex) => {
+    requireReference(
+      issues,
+      connectionIds,
+      route.connectionId,
+      "missing-route-connection-reference",
+      `physicalRoutes.${routeIndex}.connectionId`,
+      route.id,
+    );
+    requireReference(
+      issues,
+      layerIds,
+      route.layerId,
+      "missing-route-layer-reference",
+      `physicalRoutes.${routeIndex}.layerId`,
+      route.id,
     );
   });
 
