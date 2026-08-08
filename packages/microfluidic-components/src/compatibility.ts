@@ -120,17 +120,37 @@ export function checkPortCompatibility(input: {
     }
     const sourceCount = countConnections(input.context.connections, sourcePort.id);
     const targetCount = countConnections(input.context.connections, targetPort.id);
-    if (
-      sourceTemplate.maxConnections !== null &&
-      sourceCount >= sourceTemplate.maxConnections
-    ) {
-      issues.push(issue("SOURCE_CAPACITY_EXCEEDED", sourcePort.id, targetPort.id));
+    const sourceMaxConnections = effectiveMaxConnections(
+      sourceDefinition,
+      sourceTemplate,
+    );
+    const targetMaxConnections = effectiveMaxConnections(
+      targetDefinition,
+      targetTemplate,
+    );
+    if (sourceMaxConnections !== null && sourceCount >= sourceMaxConnections.maximum) {
+      issues.push(
+        sourceMaxConnections.legacy
+          ? issueWithMessage(
+              "LEGACY_MANIFOLD_CAPACITY_EXCEEDED",
+              sourcePort.id,
+              targetPort.id,
+              "Legacy manifold is deprecated; use splitter or merger for new branching.",
+            )
+          : issue("SOURCE_CAPACITY_EXCEEDED", sourcePort.id, targetPort.id),
+      );
     }
-    if (
-      targetTemplate.maxConnections !== null &&
-      targetCount >= targetTemplate.maxConnections
-    ) {
-      issues.push(issue("TARGET_CAPACITY_EXCEEDED", sourcePort.id, targetPort.id));
+    if (targetMaxConnections !== null && targetCount >= targetMaxConnections.maximum) {
+      issues.push(
+        targetMaxConnections.legacy
+          ? issueWithMessage(
+              "LEGACY_MANIFOLD_CAPACITY_EXCEEDED",
+              sourcePort.id,
+              targetPort.id,
+              "Legacy manifold is deprecated; use splitter or merger for new branching.",
+            )
+          : issue("TARGET_CAPACITY_EXCEEDED", sourcePort.id, targetPort.id),
+      );
     }
   }
 
@@ -283,11 +303,37 @@ function countConnections(connections: readonly Connection[], portId: string): n
   ).length;
 }
 
+function effectiveMaxConnections(
+  definition: ComponentDefinition,
+  template: PortTemplate,
+): { maximum: number; legacy: boolean } | null {
+  if (definition.key === "junction.manifold" && template.key === "shared") {
+    return { maximum: 1, legacy: true };
+  }
+  return template.maxConnections === null
+    ? null
+    : { maximum: template.maxConnections, legacy: false };
+}
+
 function issue(code: string, sourcePortId: string, targetPortId: string) {
+  return issueWithMessage(
+    code,
+    sourcePortId,
+    targetPortId,
+    code.replace(/_/g, " ").toLowerCase(),
+  );
+}
+
+function issueWithMessage(
+  code: string,
+  sourcePortId: string,
+  targetPortId: string,
+  message: string,
+) {
   return {
     code,
     severity: "error" as const,
-    message: code.replace(/_/g, " ").toLowerCase(),
+    message,
     sourcePortId,
     targetPortId,
   };

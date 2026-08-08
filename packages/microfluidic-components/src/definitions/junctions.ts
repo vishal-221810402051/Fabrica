@@ -57,23 +57,28 @@ export const junctionDefinitions: readonly ComponentDefinition[] = [
     icon: "junction",
     fixedProperties: { category: "merger" },
   }),
-  defineComponent({
-    key: "junction.manifold",
-    displayName: "Manifold",
-    description: "Shared multi-connect manifold template.",
-    persistedKind: "junction",
-    category: "routing",
-    tags: ["junction", "manifold", "shared"],
-    ports: [
-      {
-        ...fluidPort("shared", "Shared manifold port", "bidirectional"),
-        maxConnections: null,
-      },
-    ],
-    lanePolicy: "shared",
-    icon: "junction",
-    fixedProperties: { category: "manifold" },
-  }),
+  {
+    ...defineComponent({
+      key: "junction.manifold",
+      displayName: "Manifold",
+      description:
+        "Legacy shared multi-connect manifold template. Prefer splitter or merger for new branching.",
+      persistedKind: "junction",
+      category: "routing",
+      tags: ["junction", "manifold", "shared", "legacy"],
+      ports: [
+        {
+          ...fluidPort("shared", "Shared manifold port", "bidirectional"),
+          maxConnections: null,
+        },
+      ],
+      lanePolicy: "shared",
+      icon: "junction",
+      fixedProperties: { category: "manifold" },
+    }),
+    deprecated: true,
+    replacementKey: "junction.splitter",
+  },
   defineComponent({
     key: "junction.generic",
     displayName: "Generic junction",

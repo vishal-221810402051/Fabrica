@@ -48,7 +48,7 @@ deferred.
 The initial registry contains 30 built-ins:
 
 - Channels: rectangular and circular.
-- Junctions: Y, T, splitter, merger, manifold, and generic.
+- Junctions: Y, T, splitter, merger, legacy manifold, and generic.
 - Chambers: generic, metering, reaction, incubation, mixing, detection, and
   neutralization.
 - Reservoirs: generic, sample inlet, reagent inlet, outlet, and waste.
@@ -91,6 +91,22 @@ Multiplicity checks count existing project connections that reference each
 port. `null` maximum means explicitly unbounded. Minimum connection counts are
 metadata for later whole-project validation and do not make a newly-created
 component invalid.
+
+Phase 7A locks explicit branching semantics. Ordinary liquid ports continue to
+default to `maxConnections: 1`, so branching and joining must be represented by
+multiple physical port IDs rather than multiple connections on one ordinary
+port. `junction.splitter` provides one liquid input and two distinct liquid
+outputs. `junction.merger` provides two distinct liquid inputs and one liquid
+output. These fixed definitions are sufficient for Phase 7A; variable branch
+counts are deferred.
+
+`junction.manifold` is legacy. Its existing one-port bidirectional structure is
+preserved so old projects can load and render, and `getComponentDefinition`
+continues to resolve it. The definition is marked deprecated with
+`junction.splitter` as its replacement hint and is hidden from normal web
+palette insertion. Compatibility treats the legacy shared port as effectively
+capped for new connections and returns a legacy capacity issue once it already
+has a connection, directing new designs toward splitter or merger components.
 
 ## Layer And Lane Policies
 

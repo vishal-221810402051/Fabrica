@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
+import { insertComponentFromDefinition } from "./editor/editorActions";
 import { loadProjectRecord } from "./persistence/projectStorage";
 import { projectStore, resetProjectStoreForTests } from "./state/projectStore";
 
@@ -170,6 +171,64 @@ describe("App", () => {
     expect(projectStore.getState().selectedComponentIds).toHaveLength(1);
     expect(screen.getByLabelText(/X mm/i)).toHaveValue("4");
     expect(screen.getByLabelText(/Y mm/i)).toHaveValue("4");
+  });
+
+  it("renders semantic red input and blue output handles with accessible labels", async () => {
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("Untitled Project")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText("Category"), {
+      target: { value: "routing" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Splitterjunction.splitter",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    const input = await screen.findByLabelText(/^Input Input:/);
+    const outputA = screen.getByLabelText(/^Output Output A:/);
+    const outputB = screen.getByLabelText(/^Output Output B:/);
+
+    expect(input).toHaveClass("port-input");
+    expect(outputA).toHaveClass("port-output");
+    expect(outputB).toHaveClass("port-output");
+  });
+
+  it("hides the legacy manifold from palette insertion but still renders imported projects", async () => {
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("Untitled Project")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText("Category"), {
+      target: { value: "routing" },
+    });
+    expect(
+      screen.queryByRole("button", { name: "Manifoldjunction.manifold" }),
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      projectStore.getState().updateProject((project) => {
+        const result = insertComponentFromDefinition(project, {
+          definitionKey: "junction.manifold",
+          layerId: project.layers[0]!.id,
+          position: { x: 2, y: 2 },
+        });
+        return result.project;
+      }, "Import legacy manifold fixture");
+    });
+
+    expect(await screen.findByLabelText("Manifold Manifold")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Input Shared manifold port:/)).toHaveClass(
+      "port-input",
+    );
+    expect(screen.getByLabelText(/^Output Shared manifold port:/)).toHaveClass(
+      "port-output",
+    );
   });
 
   it("applies project inspector drafts explicitly and supports undo/redo", async () => {

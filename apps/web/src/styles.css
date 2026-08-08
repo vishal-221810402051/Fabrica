@@ -440,12 +440,22 @@ select {
   width: 12px;
 }
 
-.port-source {
+.port-output {
   background: #2563eb;
 }
 
-.port-target {
+.port-input {
   background: #dc2626;
+}
+
+.port-output:hover,
+.port-output:focus-visible {
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 28%);
+}
+
+.port-input:hover,
+.port-input:focus-visible {
+  box-shadow: 0 0 0 3px rgb(220 38 38 / 28%);
 }
 
 .editor-feedback {

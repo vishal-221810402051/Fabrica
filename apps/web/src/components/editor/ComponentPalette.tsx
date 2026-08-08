@@ -135,6 +135,9 @@ export function ComponentPalette() {
 function filterDefinitions(category: ComponentCategory | "all", search: string) {
   const normalized = search.trim().toLowerCase();
   return listComponentDefinitions().filter((definition) => {
+    if (definition.deprecated) {
+      return false;
+    }
     const categoryMatches = category === "all" || definition.category === category;
     const text = [
       definition.displayName,

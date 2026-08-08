@@ -27,6 +27,10 @@ describe("component registry", () => {
       "channel.rectangular",
     ]);
     expect(hasComponentDefinition("valve.normally-open")).toBe(true);
+    expect(getComponentDefinition("junction.manifold")).toMatchObject({
+      deprecated: true,
+      replacementKey: "junction.splitter",
+    });
     expect(() => getComponentDefinition("missing.definition")).toThrow(
       UnknownComponentDefinitionError,
     );

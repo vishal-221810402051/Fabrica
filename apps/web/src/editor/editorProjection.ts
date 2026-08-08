@@ -87,6 +87,7 @@ export function deriveEditorProjection(
         full,
       };
     });
+    const laidOutPorts = layoutPortHandles(ports);
     const data: EditorNodeData = {
       componentId: component.id,
       definitionKey: definition.key,
@@ -95,7 +96,7 @@ export function deriveEditorProjection(
       persistedKind: component.kind,
       category: definition.category,
       icon: definition.icon,
-      ports,
+      ports: laidOutPorts,
       layerName: layer?.name ?? component.layerId,
       laneName: lane?.name ?? null,
       selected: transient.selectedComponentIds.includes(component.id),
@@ -150,6 +151,63 @@ export function deriveEditorProjection(
     connectionsById,
     connectionCountsByPortId,
   };
+}
+
+function layoutPortHandles(ports: EditorNodeData["ports"]): EditorNodeData["ports"] {
+  const inputPorts = ports.filter(
+    (port) => port.direction === "input" || port.direction === "bidirectional",
+  );
+  const outputPorts = ports.filter(
+    (port) => port.direction === "output" || port.direction === "bidirectional",
+  );
+  const inputAnchors = sideAnchors(inputPorts, "input");
+  const outputAnchors = sideAnchors(outputPorts, "output");
+
+  return ports.map((port) => {
+    const inputAnchor = inputAnchors.get(port.portId);
+    const outputAnchor = outputAnchors.get(port.portId);
+    return {
+      ...port,
+      anchor: inputAnchor ?? outputAnchor ?? port.anchor,
+      ...(inputAnchor ? { inputAnchor } : {}),
+      ...(outputAnchor ? { outputAnchor } : {}),
+    };
+  });
+}
+
+function sideAnchors(
+  ports: EditorNodeData["ports"],
+  side: "input" | "output",
+): Map<string, { x: number; y: number }> {
+  const x = side === "input" ? 0 : 1;
+  if (safeExplicitAnchors(ports, x)) {
+    return new Map(ports.map((port) => [port.portId, { x, y: port.anchor.y }]));
+  }
+  return new Map(
+    ports.map((port, index) => [
+      port.portId,
+      { x, y: (index + 1) / (ports.length + 1) },
+    ]),
+  );
+}
+
+function safeExplicitAnchors(ports: EditorNodeData["ports"], x: number): boolean {
+  if (ports.length === 0) {
+    return true;
+  }
+  const yValues = ports
+    .map((port) => port.anchor.y)
+    .sort((left, right) => left - right);
+  return (
+    ports.every(
+      (port) =>
+        port.anchor.x === x &&
+        Number.isFinite(port.anchor.y) &&
+        port.anchor.y >= 0.08 &&
+        port.anchor.y <= 0.92,
+    ) &&
+    yValues.every((value, index) => index === 0 || value - yValues[index - 1]! >= 0.12)
+  );
 }
 
 function assertUniqueIds(items: readonly { id: string }[], entityName: string): void {

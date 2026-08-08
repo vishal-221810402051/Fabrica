@@ -35,9 +35,11 @@ export function MicrofluidicNode(props: NodeProps) {
 }
 
 function PortHandle(props: { port: EditorPortProjection }) {
-  const title = `${props.port.name}: ${props.port.direction}, ${props.port.medium}, ${props.port.role}, ${props.port.connectedCount}/${props.port.maxConnections ?? "many"}`;
-  const left = `${props.port.anchor.x * 100}%`;
-  const top = `${props.port.anchor.y * 100}%`;
+  const capacity = `${props.port.connectedCount}/${props.port.maxConnections ?? "many"}`;
+  const inputTitle = `Input ${props.port.name}: ${props.port.medium}, ${props.port.role}, ${capacity}`;
+  const outputTitle = `Output ${props.port.name}: ${props.port.medium}, ${props.port.role}, ${capacity}`;
+  const inputAnchor = props.port.inputAnchor ?? props.port.anchor;
+  const outputAnchor = props.port.outputAnchor ?? props.port.anchor;
   return (
     <>
       {props.port.targetHandleId ? (
@@ -46,10 +48,13 @@ function PortHandle(props: { port: EditorPortProjection }) {
           type="target"
           position={Position.Left}
           isConnectable={!props.port.full}
-          className="port-handle port-target"
-          style={{ left, top }}
-          title={title}
-          aria-label={title}
+          className="port-handle port-input"
+          style={{
+            left: `${inputAnchor.x * 100}%`,
+            top: `${inputAnchor.y * 100}%`,
+          }}
+          title={inputTitle}
+          aria-label={inputTitle}
         />
       ) : null}
       {props.port.sourceHandleId ? (
@@ -58,10 +63,13 @@ function PortHandle(props: { port: EditorPortProjection }) {
           type="source"
           position={Position.Right}
           isConnectable={!props.port.full}
-          className="port-handle port-source"
-          style={{ left, top }}
-          title={title}
-          aria-label={title}
+          className="port-handle port-output"
+          style={{
+            left: `${outputAnchor.x * 100}%`,
+            top: `${outputAnchor.y * 100}%`,
+          }}
+          title={outputTitle}
+          aria-label={outputTitle}
         />
       ) : null}
     </>

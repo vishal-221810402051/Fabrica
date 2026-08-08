@@ -60,6 +60,47 @@ describe("editor projection", () => {
     expect(port.sourceHandleId).not.toBe(port.targetHandleId);
     expect(port.sourceHandleId).toContain(port.portId);
     expect(port.targetHandleId).toContain(port.portId);
+    expect(port.inputAnchor).toEqual({ x: 0, y: 0.5 });
+    expect(port.outputAnchor).toEqual({ x: 1, y: 0.5 });
+  });
+
+  it("orders multiple inputs and outputs deterministically without overlap", () => {
+    const base = makeProject();
+    const withSplitter = insertComponentFromDefinition(base, {
+      definitionKey: "junction.splitter",
+      layerId: base.layers[0]!.id,
+      position: { x: 1, y: 1 },
+    }).project;
+    const withMerger = insertComponentFromDefinition(withSplitter, {
+      definitionKey: "junction.merger",
+      layerId: base.layers[0]!.id,
+      position: { x: 3, y: 1 },
+    }).project;
+    const projection = deriveEditorProjection(withMerger, {
+      selectedComponentIds: [],
+      selectedConnectionIds: [],
+    });
+    const splitter = projection.nodes.find(
+      (node) => node.data.definitionKey === "junction.splitter",
+    )!;
+    const merger = projection.nodes.find(
+      (node) => node.data.definitionKey === "junction.merger",
+    )!;
+    const splitterOutputs = splitter.data.ports.filter(
+      (port) => port.direction === "output",
+    );
+    const mergerInputs = merger.data.ports.filter((port) => port.direction === "input");
+
+    expect(splitterOutputs.map((port) => port.templateKey)).toEqual(["out-a", "out-b"]);
+    expect(splitterOutputs.map((port) => port.outputAnchor)).toEqual([
+      { x: 1, y: 0.25 },
+      { x: 1, y: 0.75 },
+    ]);
+    expect(mergerInputs.map((port) => port.templateKey)).toEqual(["in-a", "in-b"]);
+    expect(mergerInputs.map((port) => port.inputAnchor)).toEqual([
+      { x: 0, y: 0.25 },
+      { x: 0, y: 0.75 },
+    ]);
   });
 
   it("projects target scale deterministically without mutation", () => {

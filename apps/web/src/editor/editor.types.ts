@@ -58,6 +58,8 @@ export interface EditorPortProjection {
   role: PortRole;
   templateKey: string;
   anchor: Point;
+  inputAnchor?: Point;
+  outputAnchor?: Point;
   sourceHandleId?: string;
   targetHandleId?: string;
   connectedCount: number;

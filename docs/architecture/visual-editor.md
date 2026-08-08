@@ -48,6 +48,46 @@ are deferred.
 Viewport zoom and pan are session-only. They are not exported and do not trigger
 autosave.
 
+## Port Semantics And Branching
+
+Phase 7A makes port direction explicit in the editor projection before physical
+routing and CAD work. Persisted `Port.direction` and registry port-template
+metadata remain authoritative. The canvas presents input ports as red handles on
+the left side of a node and output ports as blue handles on the right side of a
+node. Direction is also exposed through handle side, semantic CSS class, title,
+and ARIA label; color is presentation only.
+
+Handle IDs remain deterministic adapters around persisted port IDs:
+
+```text
+fg-port:source:<portId>
+fg-port:target:<portId>
+```
+
+The projection preserves registry port-template order. For multiple input or
+output ports on the same side, handles are distributed vertically in a stable
+order. Safe explicit registry anchors are preserved when they already place
+inputs on the left or outputs on the right without overlap; otherwise the
+projection calculates non-overlapping side anchors. These anchors are visual
+only and are not written to the Project, IndexedDB records, or export payloads.
+
+Local connection compatibility continues to enforce ordered output-to-input
+connections, medium compatibility, layer/lane compatibility, duplicate
+rejection, and per-port `maxConnections`. Ordinary liquid ports created by the
+registry default to one connection, so implicit fan-out from one physical output
+port and implicit fan-in to one physical input port are rejected.
+
+Branching and joining are represented through explicit persisted port IDs:
+
+- `junction.splitter`: one input and two separate output ports.
+- `junction.merger`: two separate input ports and one output.
+
+Variable branch-count architecture is deferred. `junction.manifold` remains
+resolvable for legacy imports and existing projects, but it is deprecated,
+hidden from normal palette insertion, and capped by compatibility checks so new
+unlimited branching through its shared bidirectional port is blocked with
+legacy feedback directing users to splitter or merger components.
+
 ## Editing
 
 The palette consumes the frozen Phase 4 registry directly, supports category
@@ -60,7 +100,7 @@ Movement commits on drag stop only. Drag previews, selection, hover,
 connection previews, palette filters, and property drafts are transient and do
 not dirty the project.
 
-Connections are created only after Phase 4 local compatibility passes. Failed
+Connections are created only after local compatibility passes. Failed
 connection attempts show structured feedback and do not persist edges.
 
 Phase 6 expands the property inspector into explicit typed editors for the

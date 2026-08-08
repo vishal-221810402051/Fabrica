@@ -250,4 +250,178 @@ describe("port compatibility", () => {
       }).issues.map((issue) => issue.code),
     ).toContain("PORT_TEMPLATE_MISMATCH");
   });
+
+  it("rejects repeated ordinary fan-out and fan-in through the same physical port", () => {
+    const source = created("reservoir.sample-inlet");
+    const firstTarget = created("chamber.reaction");
+    const secondTarget = created("chamber.metering");
+    const output = source.ports[0]!;
+    const firstInput = firstTarget.ports.find(
+      (candidate) => candidate.direction === "input",
+    )!;
+    const secondInput = secondTarget.ports.find(
+      (candidate) => candidate.direction === "input",
+    )!;
+
+    expect(
+      checkPortCompatibility({
+        sourcePortId: output.id,
+        targetPortId: secondInput.id,
+        context: context(
+          [source, firstTarget, secondTarget],
+          [
+            {
+              id: "connection_existing",
+              sourcePortId: output.id,
+              targetPortId: firstInput.id,
+              metadata: {},
+            } as Connection,
+          ],
+        ),
+      }).issues.map((issue) => issue.code),
+    ).toContain("SOURCE_CAPACITY_EXCEEDED");
+
+    const secondSource = created("reservoir.reagent-inlet");
+    expect(
+      checkPortCompatibility({
+        sourcePortId: secondSource.ports[0]!.id,
+        targetPortId: firstInput.id,
+        context: context(
+          [source, secondSource, firstTarget],
+          [
+            {
+              id: "connection_existing",
+              sourcePortId: output.id,
+              targetPortId: firstInput.id,
+              metadata: {},
+            } as Connection,
+          ],
+        ),
+      }).issues.map((issue) => issue.code),
+    ).toContain("TARGET_CAPACITY_EXCEEDED");
+  });
+
+  it("allows splitter and merger topology only through separate persisted ports", () => {
+    const reservoir = created("reservoir.sample-inlet");
+    const splitter = created("junction.splitter");
+    const chamberA = created("chamber.reaction");
+    const chamberB = created("chamber.metering");
+    const splitterInput = splitter.ports.find(
+      (candidate) => candidate.name === "Input",
+    )!;
+    const splitterOutputs = splitter.ports.filter(
+      (candidate) => candidate.direction === "output",
+    );
+    const chamberInputs = [chamberA, chamberB].map((item) =>
+      item.ports.find((candidate) => candidate.direction === "input")!,
+    );
+    const splitContext = context(
+      [reservoir, splitter, chamberA, chamberB],
+      [
+        {
+          id: "connection_to_splitter",
+          sourcePortId: reservoir.ports[0]!.id,
+          targetPortId: splitterInput.id,
+          metadata: {},
+        } as Connection,
+        {
+          id: "connection_branch_a",
+          sourcePortId: splitterOutputs[0]!.id,
+          targetPortId: chamberInputs[0]!.id,
+          metadata: {},
+        } as Connection,
+      ],
+    );
+
+    expect(
+      checkPortCompatibility({
+        sourcePortId: splitterOutputs[1]!.id,
+        targetPortId: chamberInputs[1]!.id,
+        context: splitContext,
+      }).compatible,
+    ).toBe(true);
+
+    const sourceA = created("reservoir.sample-inlet");
+    const sourceB = created("reservoir.reagent-inlet");
+    const merger = created("junction.merger");
+    const outlet = created("reservoir.outlet");
+    const mergerInputs = merger.ports.filter(
+      (candidate) => candidate.direction === "input",
+    );
+    const mergerOutput = merger.ports.find(
+      (candidate) => candidate.direction === "output",
+    )!;
+    const mergeContext = context(
+      [sourceA, sourceB, merger, outlet],
+      [
+        {
+          id: "connection_input_a",
+          sourcePortId: sourceA.ports[0]!.id,
+          targetPortId: mergerInputs[0]!.id,
+          metadata: {},
+        } as Connection,
+        {
+          id: "connection_to_outlet",
+          sourcePortId: mergerOutput.id,
+          targetPortId: outlet.ports[0]!.id,
+          metadata: {},
+        } as Connection,
+      ],
+    );
+
+    expect(
+      checkPortCompatibility({
+        sourcePortId: sourceB.ports[0]!.id,
+        targetPortId: mergerInputs[1]!.id,
+        context: mergeContext,
+      }).compatible,
+    ).toBe(true);
+  });
+
+  it("rejects output-to-output, input-to-input, and new legacy manifold branching", () => {
+    const channel = created("channel.rectangular");
+    const filter = created("filter.debris");
+    const manifold = created("junction.manifold");
+    const targetA = created("channel.circular");
+    const targetB = created("channel.rectangular");
+
+    expect(
+      checkPortCompatibility({
+        sourcePortId: port(channel, "outlet").id,
+        targetPortId: port(filter, "output").id,
+        context: context([channel, filter]),
+      }).issues.map((issue) => issue.code),
+    ).toContain("DIRECTION_INCOMPATIBLE");
+    expect(
+      checkPortCompatibility({
+        sourcePortId: port(channel, "inlet").id,
+        targetPortId: port(filter, "input").id,
+        context: context([channel, filter]),
+      }).issues.map((issue) => issue.code),
+    ).toContain("DIRECTION_INCOMPATIBLE");
+    expect(
+      checkPortCompatibility({
+        sourcePortId: manifold.ports[0]!.id,
+        targetPortId: targetB.ports[0]!.id,
+        context: context(
+          [manifold, targetA, targetB],
+          [
+            {
+              id: "connection_existing",
+              sourcePortId: manifold.ports[0]!.id,
+              targetPortId: targetA.ports[0]!.id,
+              metadata: {},
+            } as Connection,
+          ],
+        ),
+      }).issues,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "LEGACY_MANIFOLD_CAPACITY_EXCEEDED",
+          message: expect.stringContaining("use splitter or merger"),
+        }),
+      ]),
+    );
+  });
 });
