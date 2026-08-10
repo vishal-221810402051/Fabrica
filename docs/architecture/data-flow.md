@@ -144,6 +144,28 @@ component and route meshes represent cavity/removal volumes inside a
 translucent chip preview. Incomplete physical routes remain guide geometry and
 are not rendered as manufacturable channels.
 
+Phase 9B-B inserts a rendering-neutral route-body derivation between generated
+centerline primitives and the browser 3D mesh. Ready physical routes flow as:
+
+```text
+PhysicalRoute
+-> deriveRouteGeometry(...)
+-> CenterlinePrimitive[]
+-> derive sourceInside/sourcePort and targetPort/targetInside interface lines
+-> CAD-space deriveRouteBody2D(extendedPrimitives, width)
+-> SceneRoute.body { boundary, zTop, zBottom, depth }
+-> one Three.js route-body mesh
+```
+
+The route-body boundary, sampled centerline, interface penetration, warnings,
+and mesh triangulation are derived artifacts. They are not Project fields and
+are not exported as authoritative design data. Interface penetration affects
+only the physical body used for rendering/future cavity subtraction; the
+authoritative port-center-to-port-center route length remains unchanged.
+Future CAD generation should consume the authoritative centerline, width,
+depth, and/or the rendering-neutral route-body boundary; it must not
+reverse-engineer React Flow paths or Three.js meshes.
+
 ## CAD And Export Flow
 
 The CAD job consumes a validated project-model snapshot and approved versioned profiles. CadQuery builds the production B-representation through OpenCascade. STEP and STL exports are derived artifacts, and export validation must report structured findings.

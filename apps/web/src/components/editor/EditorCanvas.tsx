@@ -1,12 +1,22 @@
-import { useMemo, useRef } from "react";
+import {
+  useMemo,
+  useCallback,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   Background,
   BaseEdge,
   Controls,
+  EdgeLabelRenderer,
   ReactFlow,
   ReactFlowProvider,
   SelectionMode,
   type Connection as ReactFlowConnection,
+  type Edge,
   type EdgeProps,
   type Node,
   type OnSelectionChangeParams,
@@ -26,10 +36,15 @@ import { updateSerpentineCoreCenter } from "../../editor/physicalRouteActions";
 import { decodeReactFlowConnection } from "../../editor/connectionAdapter";
 import { deriveEditorProjection } from "../../editor/editorProjection";
 import { parseHandleId } from "../../editor/handleIds";
+import {
+  EDGE_INTERACTION_STROKE_PX,
+  deriveEndpointSafeInteractionPath,
+} from "../../editor/routeInteraction";
 import { projectStore } from "../../state/projectStore";
 import { useProjectStore } from "../../state/projectStore.react";
+import { handleReactFlowEditorSelection } from "./editorSelection";
 import { MicrofluidicNode } from "./MicrofluidicNode";
-import type { EditorEdgeData } from "../../editor/editor.types";
+import type { EditorChannelEditPoint, EditorEdgeData } from "../../editor/editor.types";
 
 const nodeTypes = {
   microfluidic: MicrofluidicNode,
@@ -57,6 +72,7 @@ function EditorCanvasInner(props: {
   const selectedComponentIds = useProjectStore((state) => state.selectedComponentIds);
   const selectedConnectionIds = useProjectStore((state) => state.selectedConnectionIds);
   const dragPreviewPositions = useProjectStore((state) => state.dragPreviewPositions);
+  const [isConnectionGestureActive, setIsConnectionGestureActive] = useState(false);
   const flowRef = useRef<HTMLDivElement | null>(null);
   const transient = useMemo(
     () => ({ selectedComponentIds, selectedConnectionIds }),
@@ -76,18 +92,63 @@ function EditorCanvasInner(props: {
               position: dragPreviewPositions[node.id] ?? node.position,
             })),
             ...(project
-              ? selectedSerpentineCoreNodes(project, selectedConnectionIds).map(
-                  (node) => ({
-                    ...node,
-                    position: dragPreviewPositions[node.id] ?? node.position,
-                  }),
-                )
+              ? selectedSerpentineCoreNodes(
+                  project,
+                  selectedConnectionIds,
+                  isConnectionGestureActive,
+                ).map((node) => ({
+                  ...node,
+                  position: dragPreviewPositions[node.id] ?? node.position,
+                }))
               : []),
           ]
         : [],
-    [projection, project, dragPreviewPositions, selectedConnectionIds],
+    [
+      projection,
+      project,
+      dragPreviewPositions,
+      selectedConnectionIds,
+      isConnectionGestureActive,
+    ],
   );
-  const edges = projection?.edges ?? [];
+  const edges = useMemo(
+    () =>
+      (projection?.edges ?? []).map((edge) => ({
+        ...edge,
+        selectable: false,
+        data: {
+          ...edge.data,
+          interactionDisabled: isConnectionGestureActive,
+        },
+      })),
+    [projection, isConnectionGestureActive],
+  );
+  const handleReactFlowSelection = useCallback(
+    (selection: OnSelectionChangeParams) => handleReactFlowEditorSelection(selection),
+    [],
+  );
+  const handleReactFlowEdgeClick = useCallback(
+    (event: ReactMouseEvent<Element>, edge: Edge) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (isConnectionGestureActive || edge.type !== "physicalRoute") {
+        return;
+      }
+      const data = edge.data as EditorEdgeData | undefined;
+      const connectionId = data?.connectionId ?? edge.id;
+      projectStore.getState().selectConnectionForInspection(connectionId);
+    },
+    [isConnectionGestureActive],
+  );
+  const handleConnectStart = useCallback(() => {
+    setIsConnectionGestureActive(true);
+  }, []);
+  const handleConnectEnd = useCallback(() => {
+    setIsConnectionGestureActive(false);
+  }, []);
+  const handleChannelEditPointActivate = useCallback((connectionId: string) => {
+    projectStore.getState().selectConnectionForInspection(connectionId);
+  }, []);
 
   if (!project) {
     return <div className="editor-canvas-empty">Open a project to edit.</div>;
@@ -108,6 +169,8 @@ function EditorCanvasInner(props: {
         selectionOnDrag
         selectionMode={SelectionMode.Partial}
         nodesDraggable
+        onConnectStart={handleConnectStart}
+        onConnectEnd={handleConnectEnd}
         onInit={(instance) => {
           props.onFitReady(() => instance.fitView());
           props.onResetReady(() => instance.setViewport({ x: 0, y: 0, zoom: 1 }));
@@ -186,28 +249,98 @@ function EditorCanvasInner(props: {
             });
           }
         }}
-        onConnect={(connection) => connect(connection)}
+        onConnect={(connection) => {
+          try {
+            connect(connection);
+          } finally {
+            setIsConnectionGestureActive(false);
+          }
+        }}
         isValidConnection={(connection) => previewConnection(project, connection)}
-        onSelectionChange={(selection) => handleSelection(selection)}
+        onSelectionChange={handleReactFlowSelection}
+        onEdgeClick={handleReactFlowEdgeClick}
+        onPaneClick={() => projectStore.getState().clearEditorSelection()}
         onNodeClick={(_, node) => {
           if (node.type === "chipBoundary") {
             return;
           }
           if (node.type === "serpentineCore") {
             const data = node.data as { connectionId: string };
-            projectStore.getState().setSelectedConnections([data.connectionId]);
+            projectStore.getState().selectConnectionForInspection(data.connectionId);
             return;
           }
           projectStore.getState().setSelectedComponents([node.id]);
         }}
-        onEdgeClick={(event, edge) => {
-          event.stopPropagation();
-          projectStore.getState().setSelectedConnections([edge.id]);
-        }}
       >
+        <EdgeLabelRenderer>
+          {(projection?.channelEditPoints ?? []).map((editPoint) => (
+            <ChannelEditPoint
+              key={editPoint.connectionId}
+              editPoint={editPoint}
+              disabled={isConnectionGestureActive}
+              onActivate={handleChannelEditPointActivate}
+            />
+          ))}
+        </EdgeLabelRenderer>
         <Background gap={mmToDisplay(MAJOR_GRID_MM)} size={1} />
         <Controls showInteractive={false} />
       </ReactFlow>
+    </div>
+  );
+}
+
+function ChannelEditPoint(props: {
+  editPoint: EditorChannelEditPoint;
+  disabled: boolean;
+  onActivate: (connectionId: string) => void;
+}) {
+  const activate = () => {
+    if (!props.disabled) {
+      props.onActivate(props.editPoint.connectionId);
+    }
+  };
+  return (
+    <div
+      className="channel-edit-point"
+      data-connection-id={props.editPoint.connectionId}
+      data-testid={`channel-edit-point-${props.editPoint.connectionId}`}
+      style={{
+        width: props.editPoint.hitDiameterPx,
+        height: props.editPoint.hitDiameterPx,
+        transform: `translate(-50%, -50%) translate(${props.editPoint.position.x}px, ${props.editPoint.position.y}px)`,
+        pointerEvents: props.disabled ? "none" : "all",
+      }}
+    >
+      <button
+        type="button"
+        className="channel-edit-point__hit"
+        aria-label={props.editPoint.label}
+        aria-disabled={props.disabled}
+        data-connection-id={props.editPoint.connectionId}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          activate();
+        }}
+        onPointerDown={(event) => {
+          event.stopPropagation();
+        }}
+        tabIndex={props.disabled ? -1 : 0}
+        title="Edit channel"
+      >
+        <span
+          className={[
+            "channel-edit-point__visual",
+            props.editPoint.selected ? "channel-edit-point__visual-selected" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          style={{
+            width: props.editPoint.visibleDiameterPx,
+            height: props.editPoint.visibleDiameterPx,
+          }}
+        />
+      </button>
     </div>
   );
 }
@@ -244,8 +377,9 @@ function ChipBoundaryNode(props: NodeProps) {
 function selectedSerpentineCoreNodes(
   project: NonNullable<ReturnType<typeof projectStore.getState>["project"]>,
   selectedConnectionIds: readonly string[],
+  isConnectionGestureActive = false,
 ): Node[] {
-  if (selectedConnectionIds.length !== 1) {
+  if (isConnectionGestureActive || selectedConnectionIds.length !== 1) {
     return [];
   }
   const connectionId = selectedConnectionIds[0]!;
@@ -259,7 +393,17 @@ function selectedSerpentineCoreNodes(
   ) {
     return [];
   }
-  const geometry = deriveRouteGeometry(project, route);
+  let geometry: ReturnType<typeof deriveRouteGeometry>;
+  try {
+    geometry = deriveRouteGeometry(project, route);
+  } catch (error) {
+    console.warn(
+      `Skipping selected serpentine core overlay for ${connectionId}: ${
+        error instanceof Error ? error.message : "route geometry unavailable"
+      }`,
+    );
+    return [];
+  }
   if (!geometry.coreEnvelope) {
     return [];
   }
@@ -309,8 +453,10 @@ function SerpentineCoreNode(props: NodeProps) {
   );
 }
 
-function PhysicalRouteEdge(props: EdgeProps) {
+export function PhysicalRouteEdge(props: EdgeProps) {
   const data = props.data as EditorEdgeData | undefined;
+  const connectionId = data?.connectionId ?? props.id;
+  const interactionDisabled = Boolean(data?.interactionDisabled);
   const points =
     data?.routePoints && data.routePoints.length >= 2
       ? data.routePoints
@@ -321,32 +467,83 @@ function PhysicalRouteEdge(props: EdgeProps) {
   const path = points
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ");
+  const interactionPath = deriveEndpointSafeInteractionPath(points);
+  const routeSelectionDisabled = interactionDisabled;
   return (
-    <BaseEdge
-      path={data?.routePath || path}
-      className={
-        props.selected || data?.selected
-          ? "physical-route-edge physical-route-edge-selected"
-          : "physical-route-edge"
-      }
-      interactionWidth={props.interactionWidth ?? 24}
-      style={{ strokeWidth: data?.routeWidthPx ?? 2 }}
-    />
+    <>
+      <BaseEdge
+        path={data?.routePath || path}
+        className={
+          props.selected || data?.selected
+            ? "physical-route-edge physical-route-edge-selected"
+            : "physical-route-edge"
+        }
+        interactionWidth={0}
+        style={{ strokeWidth: data?.routeWidthPx ?? 2 }}
+      />
+      <path
+        aria-disabled={routeSelectionDisabled}
+        aria-label={`Select channel ${connectionId}`}
+        className={[
+          "physical-route-edge-interaction",
+          routeSelectionDisabled ? "physical-route-edge-interaction-disabled" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        d={interactionPath}
+        data-interaction-disabled={String(routeSelectionDisabled)}
+        data-testid={`physical-route-edge-interaction-${connectionId}`}
+        fill="none"
+        role="button"
+        stroke="transparent"
+        strokeWidth={Math.max(EDGE_INTERACTION_STROKE_PX, props.interactionWidth ?? 0)}
+        tabIndex={0}
+        vectorEffect="non-scaling-stroke"
+        onPointerDown={(event) => {
+          if (!shouldSelectRouteFromPointerEvent(event, routeSelectionDisabled)) {
+            return;
+          }
+          selectRouteFromInteraction(event, connectionId);
+        }}
+        onKeyDown={(event) => {
+          if (routeSelectionDisabled || (event.key !== "Enter" && event.key !== " ")) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          projectStore.getState().selectConnectionForInspection(connectionId);
+        }}
+      />
+    </>
   );
 }
 
-function handleSelection(selection: OnSelectionChangeParams) {
-  if (selection.nodes.length === 0 && selection.edges.length === 0) {
-    return;
-  }
-  const componentNodes = selection.nodes.filter((node) => node.type === "microfluidic");
-  const coreConnectionIds = selection.nodes
-    .filter((node) => node.type === "serpentineCore")
-    .map((node) => String((node.data as { connectionId: string }).connectionId));
-  projectStore.getState().setEditorSelection({
-    componentIds: componentNodes.map((node) => node.id),
-    connectionIds: [...selection.edges.map((edge) => edge.id), ...coreConnectionIds],
-  });
+function shouldSelectRouteFromPointerEvent(
+  event: ReactPointerEvent<SVGPathElement>,
+  disabled: boolean,
+): boolean {
+  return (
+    !disabled &&
+    event.currentTarget === event.target &&
+    event.button === 0 &&
+    event.isPrimary !== false &&
+    !hasRouteSelectionModifier(event)
+  );
+}
+
+function hasRouteSelectionModifier(
+  event: ReactPointerEvent<SVGPathElement> | ReactKeyboardEvent<SVGPathElement>,
+): boolean {
+  return event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
+}
+
+function selectRouteFromInteraction(
+  event: ReactPointerEvent<SVGPathElement>,
+  connectionId: string,
+) {
+  event.preventDefault();
+  event.stopPropagation();
+  projectStore.getState().selectConnectionForInspection(connectionId);
 }
 
 function connect(connection: ReactFlowConnection) {
@@ -368,7 +565,7 @@ function connect(connection: ReactFlowConnection) {
       return result.project;
     }, "Create connection");
     if (createdConnectionId) {
-      projectStore.getState().setSelectedConnections([createdConnectionId]);
+      projectStore.getState().selectConnectionForInspection(createdConnectionId);
       projectStore.getState().setConnectionPreview(null);
       projectStore.getState().setEditorError(null);
       return;

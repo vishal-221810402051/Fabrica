@@ -53,6 +53,15 @@ describe("project export", () => {
     expect(JSON.stringify(exported)).not.toContain("reactFlow");
     expect(JSON.stringify(exported)).not.toContain("viewport");
     expect(JSON.stringify(exported)).not.toContain("sourceHandle");
+    expect(JSON.stringify(exported)).not.toContain("selectedConnectionIds");
+    expect(JSON.stringify(exported)).not.toContain("selectedComponentIds");
+    expect(JSON.stringify(exported)).not.toContain("inspectorScope");
+    expect(JSON.stringify(exported)).not.toContain("editPoint");
+    expect(JSON.stringify(exported)).not.toContain("editPointPosition");
+    expect(JSON.stringify(exported)).not.toContain("editPointColor");
+    expect(JSON.stringify(exported)).not.toContain("editPointSize");
+    expect(JSON.stringify(exported)).not.toContain("selectedEditPoint");
+    expect(JSON.stringify(exported)).not.toContain("channelEditHandle");
     expect(projectModel.parseProject(exported).connections).toHaveLength(1);
   });
 

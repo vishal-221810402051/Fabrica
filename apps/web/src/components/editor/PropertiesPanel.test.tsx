@@ -8,6 +8,7 @@ import { createProjectExport } from "../../import-export/projectExport";
 import {
   createProjectConnection,
   insertComponentFromDefinition,
+  moveComponents,
   reassignSelectedComponentsLane,
 } from "../../editor/editorActions";
 import { updatePhysicalRouteProperties } from "../../editor/physicalRouteActions";
@@ -193,6 +194,66 @@ describe("PropertiesPanel lane management", () => {
     );
   });
 
+  it("switches straight to serpentine and back without replacing topology", () => {
+    const { connectionId } = createConnectedProject();
+    const initialProject = projectStore.getState().project!;
+    const connection = initialProject.connections.find(
+      (item) => item.id === connectionId,
+    )!;
+    const routeId = initialProject.physicalRoutes.find(
+      (item) => item.connectionId === connectionId,
+    )!.id;
+    render(<PropertiesPanel />);
+
+    switchRoutePattern("serpentine");
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    let project = projectStore.getState().project!;
+    let route = project.physicalRoutes.find(
+      (item) => item.connectionId === connectionId,
+    )!;
+    expect(route.id).toBe(routeId);
+    expect(route.pattern.kind).toBe("serpentine");
+    expect(project.connections.find((item) => item.id === connectionId)).toMatchObject({
+      sourcePortId: connection.sourcePortId,
+      targetPortId: connection.targetPortId,
+    });
+    expect(projectStore.getState().selectedConnectionIds).toEqual([connectionId]);
+
+    switchRoutePattern("straight");
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    project = projectStore.getState().project!;
+    route = project.physicalRoutes.find((item) => item.connectionId === connectionId)!;
+    expect(route.id).toBe(routeId);
+    expect(route.pattern.kind).toBe("straight");
+    expect(project.connections.find((item) => item.id === connectionId)).toMatchObject({
+      sourcePortId: connection.sourcePortId,
+      targetPortId: connection.targetPortId,
+    });
+    expect(projectStore.getState().selectedConnectionIds).toEqual([connectionId]);
+
+    act(() => {
+      projectStore.getState().undo();
+    });
+    expect(
+      projectStore
+        .getState()
+        .project!.physicalRoutes.find((item) => item.connectionId === connectionId)!
+        .pattern.kind,
+    ).toBe("serpentine");
+
+    act(() => {
+      projectStore.getState().redo();
+    });
+    expect(
+      projectStore
+        .getState()
+        .project!.physicalRoutes.find((item) => item.connectionId === connectionId)!
+        .pattern.kind,
+    ).toBe("straight");
+  });
+
   it("keeps persisted pitch after reselect, undo, redo, and export round trip", () => {
     const { connectionId } = createConnectedProject();
     render(<PropertiesPanel />);
@@ -233,6 +294,124 @@ describe("PropertiesPanel lane management", () => {
         .pattern,
     ).toMatchObject({ kind: "serpentine", pitch: { value: 0.75 } });
     expect(pattern.pitch.value).toBe(0.75);
+  });
+
+  it("reopens the route inspector through idempotent editor selection after apply, movement, and reload", () => {
+    const { connectionId } = createConnectedProject();
+    render(<PropertiesPanel />);
+
+    expect(screen.getByLabelText("Pattern")).toHaveValue("straight");
+    changeField("Width", "0.5");
+    changeField("Depth", "0.2");
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    act(() => {
+      projectStore.getState().setInspectorScope("project");
+      projectStore.getState().setEditorSelection({
+        componentIds: [],
+        connectionIds: [connectionId],
+      });
+    });
+    expect(screen.getByLabelText("Width")).toHaveValue("0.5");
+    expect(screen.getByLabelText("Depth")).toHaveValue("0.2");
+
+    act(() => {
+      projectStore.getState().updateProject((project) => {
+        const moved = moveComponents(project, {
+          [project.components[0]!.id]: { x: 2, y: 0 },
+        });
+        return moved.project;
+      }, "Move endpoint");
+      projectStore.getState().setInspectorScope("project");
+      projectStore.getState().setEditorSelection({
+        componentIds: [],
+        connectionIds: [connectionId],
+      });
+    });
+    expect(screen.getByLabelText("Width")).toHaveValue("0.5");
+
+    act(() => {
+      const state = projectStore.getState();
+      const reloaded = parseProject(JSON.parse(stringifyProject(state.project!)));
+      projectStore
+        .getState()
+        .replaceProject(reloaded, state.metadata!, { resetHistory: true });
+      projectStore.getState().setEditorSelection({
+        componentIds: [],
+        connectionIds: [connectionId],
+      });
+    });
+    expect(projectStore.getState().selectedConnectionIds).toEqual([connectionId]);
+    expect(projectStore.getState().selectedComponentIds).toEqual([]);
+    expect(projectStore.getState().inspectorScope).toBe("selection");
+    expect(screen.getByLabelText("Width")).toHaveValue("0.5");
+  });
+
+  it("updates channel width with success feedback and keeps the channel selected", () => {
+    const { connectionId } = createConnectedProject();
+    render(<PropertiesPanel />);
+
+    changeField("Width", "0.75");
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    const route = projectStore
+      .getState()
+      .project!.physicalRoutes.find((item) => item.connectionId === connectionId)!;
+    expect(route.width?.value).toBe(0.75);
+    expect(projectStore.getState().selectedConnectionIds).toEqual([connectionId]);
+    expect(projectStore.getState().inspectorScope).toBe("selection");
+    expect(screen.getByRole("status")).toHaveTextContent("Channel properties updated");
+  });
+
+  it("reports no-op channel apply without mutating history", () => {
+    createConnectedProject();
+    render(<PropertiesPanel />);
+    const before = stringifyProject(projectStore.getState().project!);
+    const historyLength = projectStore.getState().history.past.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(stringifyProject(projectStore.getState().project!)).toBe(before);
+    expect(projectStore.getState().history.past).toHaveLength(historyLength);
+    expect(screen.getByRole("status")).toHaveTextContent("No channel changes to apply");
+  });
+
+  it("reports blocked channel apply with alert feedback and no mutation", () => {
+    createConnectedProject();
+    render(<PropertiesPanel />);
+    const before = stringifyProject(projectStore.getState().project!);
+
+    changeField("Width", "not-a-number");
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(stringifyProject(projectStore.getState().project!)).toBe(before);
+    expect(screen.getByRole("alert")).toHaveTextContent("Channel update blocked");
+  });
+
+  it("lets an incomplete channel become ready by filling width and depth", () => {
+    const { connectionId } = createConnectedProject();
+    act(() => {
+      projectStore.getState().updateProject((project) => {
+        const moved = moveComponents(project, {
+          [project.components[1]!.id]: { x: 12, y: 0 },
+        });
+        return moved.project;
+      }, "Move endpoint inside chip");
+    });
+    render(<PropertiesPanel />);
+
+    expect(screen.getByLabelText("Width")).toHaveValue("");
+    expect(screen.getByLabelText("Depth")).toHaveValue("");
+    changeField("Width", "0.5");
+    changeField("Depth", "0.3");
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    const project = projectStore.getState().project!;
+    const route = project.physicalRoutes.find(
+      (item) => item.connectionId === connectionId,
+    )!;
+    expect(deriveRouteGeometry(project, route).physicalReady).toBe(true);
+    expect(screen.getByRole("status")).toHaveTextContent("Channel properties updated");
   });
 
   it("shows the same persisted pitch through the lane route inspector", () => {

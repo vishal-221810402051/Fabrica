@@ -6,19 +6,27 @@ import {
   deriveComponentFootprint,
   deriveFullRoutePolyline,
   deriveLayerZRanges,
+  deriveRoutePointAtFraction,
+  deriveRouteBody2D,
+  deriveRouteBodyPrimitivesWithInterfaces,
   deriveRouteGeometry,
+  deriveRouteInterfaceExtensions,
   compactSerpentineRouteDraft,
   displayToMm,
   getPhysicalPortFrame,
   getPhysicalPortPosition,
+  getRotatedFootprintCorners,
+  isPointInsidePolygon,
   isComponentInsideChip,
   isSerpentinePitchFeasible,
   minimumSerpentineBendRadius,
   minimumSerpentinePitch,
   mmToDisplay,
+  polygonIntersectionArea,
   projectToSceneGeometry,
   recommendedSerpentineBendRadius,
   recommendedSerpentinePitch,
+  ROUTE_BODY_CHORD_ERROR_MM,
   snapPhysicalPoint,
   toCadPoint,
   validatePhysicalGeometry,
@@ -96,6 +104,133 @@ function withComponent(project: Project, definitionKey: string, x: number, y: nu
     components: [...project.components, created.component],
     ports: [...project.ports, ...created.ports],
   });
+}
+
+function asymmetricRoutedProject(input: { completeRoutes: boolean }): Project {
+  let project = parseProject({
+    ...baseProject(),
+    chip: {
+      ...baseProject().chip,
+      overallDimensions: {
+        width: { value: 100, unit: "mm", provenance: { source: "user-entered" } },
+        height: { value: 60, unit: "mm", provenance: { source: "user-entered" } },
+        depth: { value: 1.5, unit: "mm", provenance: { source: "user-entered" } },
+      },
+      layerIds: ["layer_flow", "layer_control"],
+    },
+  });
+  project = withComponent(project, "reservoir.sample-inlet", 10, 10);
+  project = withComponent(project, "reservoir.reagent-inlet", 10, 45);
+  project = withComponent(project, "junction.merger", 40, 30);
+  project = withComponent(project, "chamber.reaction", 75, 20);
+  const sampleA = project.components.find((component) =>
+    component.name.includes("Sample inlet"),
+  )!;
+  const sampleB = project.components.find((component) =>
+    component.name.includes("Reagent inlet"),
+  )!;
+  const merger = project.components.find((component) =>
+    component.name.includes("Merger"),
+  )!;
+  const reaction = project.components.find((component) =>
+    component.name.includes("Reaction chamber"),
+  )!;
+  const connections = [
+    {
+      id: "connection_sample_a_merger",
+      sourcePortId: project.ports.find(
+        (port) => port.componentId === sampleA.id && port.direction === "output",
+      )!.id,
+      targetPortId: project.ports.find(
+        (port) => port.componentId === merger.id && port.name === "Input A",
+      )!.id,
+      metadata: {},
+    },
+    {
+      id: "connection_sample_b_merger",
+      sourcePortId: project.ports.find(
+        (port) => port.componentId === sampleB.id && port.direction === "output",
+      )!.id,
+      targetPortId: project.ports.find(
+        (port) => port.componentId === merger.id && port.name === "Input B",
+      )!.id,
+      metadata: {},
+    },
+    {
+      id: "connection_merger_reaction",
+      sourcePortId: project.ports.find(
+        (port) => port.componentId === merger.id && port.direction === "output",
+      )!.id,
+      targetPortId: project.ports.find(
+        (port) => port.componentId === reaction.id && port.direction === "input",
+      )!.id,
+      metadata: {},
+    },
+  ];
+  return parseProject({
+    ...project,
+    connections,
+    physicalRoutes: connections.map((connection, index) => ({
+      id: `route_asymmetric_${index}`,
+      connectionId: connection.id,
+      layerId: "layer_flow",
+      pattern: { kind: "straight" as const },
+      ...(input.completeRoutes
+        ? {
+            width: {
+              value: 0.2,
+              unit: "mm" as const,
+              provenance: { source: "user-entered" as const },
+            },
+            depth: {
+              value: 0.1,
+              unit: "mm" as const,
+              provenance: { source: "user-entered" as const },
+            },
+          }
+        : {}),
+      metadata: {},
+    })),
+  });
+}
+
+function expectPoint3D(
+  actual: { x: number; y: number; z: number },
+  expected: { x: number; y: number; z: number },
+) {
+  expect(actual.x).toBeCloseTo(expected.x);
+  expect(actual.y).toBeCloseTo(expected.y);
+  expect(actual.z).toBeCloseTo(expected.z);
+}
+
+function testLine(start: { x: number; y: number }, end: { x: number; y: number }) {
+  return {
+    kind: "line" as const,
+    start,
+    end,
+    length: distance(start, end),
+  };
+}
+
+function distance(
+  left: { x: number; y: number },
+  right: { x: number; y: number },
+): number {
+  return Math.hypot(right.x - left.x, right.y - left.y);
+}
+
+function signedAreaForTest(points: readonly { x: number; y: number }[]): number {
+  let area = 0;
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index]!;
+    const next = points[(index + 1) % points.length]!;
+    area += current.x * next.y - next.x * current.y;
+  }
+  return area / 2;
+}
+
+function sortedBoundary(points: readonly { x: number; y: number }[]): string[] {
+  return points.map((point) => `${point.x.toFixed(6)},${point.y.toFixed(6)}`).sort();
 }
 
 function roomyProject(): Project {
@@ -272,6 +407,49 @@ function expectTangentContinuous(
   }
 }
 
+function longCoreLegs(
+  primitives: ReturnType<typeof deriveRouteGeometry>["corePrimitives"],
+  minimumLength: number,
+) {
+  return primitives.filter(
+    (primitive) => primitive.kind === "line" && primitive.length >= minimumLength,
+  );
+}
+
+function lineDirectionForTest(
+  primitive: ReturnType<typeof deriveRouteGeometry>["corePrimitives"][number],
+) {
+  return normalizeForTest({
+    x: primitive.end.x - primitive.start.x,
+    y: primitive.end.y - primitive.start.y,
+  });
+}
+
+function distancePointToLineForTest(
+  point: { x: number; y: number },
+  primitive: ReturnType<typeof deriveRouteGeometry>["corePrimitives"][number],
+) {
+  const direction = lineDirectionForTest(primitive);
+  return Math.abs(
+    (point.x - primitive.start.x) * direction.y -
+      (point.y - primitive.start.y) * direction.x,
+  );
+}
+
+function adjacentLegPitches(
+  primitives: ReturnType<typeof deriveRouteGeometry>["corePrimitives"],
+  amplitude: number,
+) {
+  const legs = longCoreLegs(primitives, amplitude * 0.9);
+  return legs.slice(1).map((leg, index) => {
+    const previous = legs[index]!;
+    expect(
+      Math.abs(dotForTest(lineDirectionForTest(previous), lineDirectionForTest(leg))),
+    ).toBeCloseTo(1, 6);
+    return distancePointToLineForTest(leg.start, previous);
+  });
+}
+
 function primitiveStartTangentForTest(
   primitive: ReturnType<typeof deriveRouteGeometry>["primitives"][number],
 ) {
@@ -330,6 +508,137 @@ describe("geometry-core", () => {
     expect(mmToDisplay(2)).toBe(48);
     expect(displayToMm(48)).toBe(2);
     expect(snapPhysicalPoint({ x: 1.24, y: 2.26 })).toEqual({ x: 1.2, y: 2.3 });
+  });
+
+  it("samples route points at fractions along straight primitives", () => {
+    expect(
+      deriveRoutePointAtFraction(
+        [{ kind: "line", start: { x: 0, y: 0 }, end: { x: 10, y: 0 }, length: 10 }],
+        0.5,
+      )?.point,
+    ).toEqual({ x: 5, y: 0 });
+    expect(
+      deriveRoutePointAtFraction(
+        [{ kind: "line", start: { x: 0, y: 0 }, end: { x: 0, y: 10 }, length: 10 }],
+        0.5,
+      )?.point,
+    ).toEqual({ x: 0, y: 5 });
+    expect(
+      deriveRoutePointAtFraction(
+        [
+          {
+            kind: "line",
+            start: { x: 0, y: 0 },
+            end: { x: 10, y: 10 },
+            length: Math.sqrt(200),
+          },
+        ],
+        0.5,
+      )?.point,
+    ).toEqual({ x: 5, y: 5 });
+  });
+
+  it("samples route points exactly on arc length", () => {
+    const sample = deriveRoutePointAtFraction(
+      [
+        {
+          kind: "arc",
+          center: { x: 0, y: 0 },
+          radius: 10,
+          startAngle: 0,
+          sweepAngle: Math.PI / 2,
+          clockwise: false,
+          start: { x: 10, y: 0 },
+          end: { x: 0, y: 10 },
+          length: (Math.PI * 10) / 2,
+        },
+      ],
+      0.5,
+    );
+
+    expect(sample?.point.x).toBeCloseTo(Math.sqrt(50), 6);
+    expect(sample?.point.y).toBeCloseTo(Math.sqrt(50), 6);
+    expect(sample?.primitiveIndex).toBe(0);
+  });
+
+  it("walks composite route primitives by cumulative length", () => {
+    const sample = deriveRoutePointAtFraction(
+      [
+        { kind: "line", start: { x: 0, y: 0 }, end: { x: 2, y: 0 }, length: 2 },
+        {
+          kind: "arc",
+          center: { x: 2, y: 2 },
+          radius: 2,
+          startAngle: -Math.PI / 2,
+          sweepAngle: Math.PI / 2,
+          clockwise: false,
+          start: { x: 2, y: 0 },
+          end: { x: 4, y: 2 },
+          length: Math.PI,
+        },
+        { kind: "line", start: { x: 4, y: 2 }, end: { x: 12, y: 2 }, length: 8 },
+      ],
+      0.5,
+    );
+
+    expect(sample?.primitiveIndex).toBe(2);
+    expect(sample?.point.x).toBeCloseTo(4 + (10 + Math.PI) / 2 - 2 - Math.PI, 6);
+    expect(sample?.point.y).toBeCloseTo(2, 6);
+  });
+
+  it("keeps the half-length point stable for reversed equivalent routes", () => {
+    const forward = deriveRoutePointAtFraction(
+      [
+        {
+          kind: "line",
+          start: { x: 0, y: 2 },
+          end: { x: 10, y: 8 },
+          length: Math.hypot(10, 6),
+        },
+      ],
+      0.5,
+    );
+    const reversed = deriveRoutePointAtFraction(
+      [
+        {
+          kind: "line",
+          start: { x: 10, y: 8 },
+          end: { x: 0, y: 2 },
+          length: Math.hypot(10, 6),
+        },
+      ],
+      0.5,
+    );
+
+    expect(forward?.point.x).toBeCloseTo(reversed!.point.x, 6);
+    expect(forward?.point.y).toBeCloseTo(reversed!.point.y, 6);
+  });
+
+  it("samples a stable serpentine midpoint inside the authoritative envelope", () => {
+    const project = withSerpentineRoute({
+      width: 0.5,
+      depth: 0.2,
+      pitch: 0.75,
+      bendRadius: 0.3,
+      amplitude: 8,
+      turnCount: 4,
+    });
+    const generated = deriveRouteGeometry(project, project.physicalRoutes[0]!);
+    const first = deriveRoutePointAtFraction(generated.primitives, 0.5);
+    const second = deriveRoutePointAtFraction(
+      deriveRouteGeometry(project, project.physicalRoutes[0]!).primitives,
+      0.5,
+    );
+
+    expect(first).not.toBeNull();
+    expect(first!.point.x).toBeCloseTo(second!.point.x, 6);
+    expect(first!.point.y).toBeCloseTo(second!.point.y, 6);
+    expect(Number.isFinite(first!.point.x)).toBe(true);
+    expect(Number.isFinite(first!.point.y)).toBe(true);
+    expect(first!.point.x).toBeGreaterThanOrEqual(generated.envelope!.minX);
+    expect(first!.point.x).toBeLessThanOrEqual(generated.envelope!.maxX);
+    expect(first!.point.y).toBeGreaterThanOrEqual(generated.envelope!.minY);
+    expect(first!.point.y).toBeLessThanOrEqual(generated.envelope!.maxY);
   });
 
   it("derives authoritative footprints and physical port positions", () => {
@@ -416,6 +725,122 @@ describe("geometry-core", () => {
     });
   });
 
+  it("derives horizontal, vertical, and diagonal rectangular route bodies", () => {
+    const horizontal = deriveRouteBody2D(
+      [testLine({ x: 10, y: 10 }, { x: 50, y: 10 })],
+      0.5,
+    );
+    const vertical = deriveRouteBody2D(
+      [testLine({ x: 10, y: 10 }, { x: 10, y: 50 })],
+      0.5,
+    );
+    const diagonal = deriveRouteBody2D(
+      [testLine({ x: 10, y: 10 }, { x: 50, y: 30 })],
+      0.5,
+    );
+
+    expect(horizontal.issues).toEqual([]);
+    expect(horizontal.bounds).toEqual({
+      minX: 10,
+      minY: 9.75,
+      maxX: 50,
+      maxY: 10.25,
+    });
+    expect(horizontal.area).toBeCloseTo(20, 6);
+    expect(signedAreaForTest(horizontal.boundary)).toBeGreaterThan(0);
+
+    expect(vertical.issues).toEqual([]);
+    expect(vertical.bounds).toEqual({
+      minX: 9.75,
+      minY: 10,
+      maxX: 10.25,
+      maxY: 50,
+    });
+    expect(vertical.area).toBeCloseTo(20, 6);
+
+    expect(diagonal.issues).toEqual([]);
+    expect(distance(diagonal.leftBoundary[0]!, diagonal.rightBoundary[0]!)).toBeCloseTo(
+      0.5,
+      6,
+    );
+    expect(diagonal.area).toBeCloseTo(Math.hypot(40, 20) * 0.5, 6);
+  });
+
+  it("keeps reversed straight route bodies in the same physical region", () => {
+    const forward = deriveRouteBody2D(
+      [testLine({ x: 10, y: 10 }, { x: 50, y: 10 })],
+      0.5,
+    );
+    const reversed = deriveRouteBody2D(
+      [testLine({ x: 50, y: 10 }, { x: 10, y: 10 })],
+      0.5,
+    );
+    const vertical = deriveRouteBody2D(
+      [testLine({ x: 10, y: 10 }, { x: 10, y: 50 })],
+      0.5,
+    );
+    const reversedVertical = deriveRouteBody2D(
+      [testLine({ x: 10, y: 50 }, { x: 10, y: 10 })],
+      0.5,
+    );
+
+    expect(forward.issues).toEqual([]);
+    expect(reversed.issues).toEqual([]);
+    expect(vertical.issues).toEqual([]);
+    expect(reversedVertical.issues).toEqual([]);
+    expect(sortedBoundary(forward.boundary)).toEqual(sortedBoundary(reversed.boundary));
+    expect(sortedBoundary(vertical.boundary)).toEqual(
+      sortedBoundary(reversedVertical.boundary),
+    );
+    expect(forward.area).toBeCloseTo(reversed.area, 6);
+    expect(vertical.area).toBeCloseTo(reversedVertical.area, 6);
+  });
+
+  it("samples 90-degree arcs with constant inner and outer body radius", () => {
+    const radius = 2;
+    const width = 0.5;
+    const body = deriveRouteBody2D(
+      [
+        {
+          kind: "arc",
+          center: { x: 0, y: 0 },
+          radius,
+          startAngle: 0,
+          sweepAngle: Math.PI / 2,
+          clockwise: false,
+          start: { x: radius, y: 0 },
+          end: { x: 0, y: radius },
+          length: (Math.PI / 2) * radius,
+        },
+      ],
+      width,
+    );
+    const radii = body.boundary.map((point) => Math.hypot(point.x, point.y));
+
+    expect(body.issues).toEqual([]);
+    expect(body.sampledCenterline.length).toBeGreaterThan(2);
+    expect(body.sampledCenterline.length).toBeLessThanOrEqual(
+      Math.ceil(Math.PI / 2 / (2 * Math.acos(1 - ROUTE_BODY_CHORD_ERROR_MM / radius))) +
+        1,
+    );
+    expect(Math.min(...radii)).toBeCloseTo(radius - width / 2, 5);
+    expect(Math.max(...radii)).toBeCloseTo(radius + width / 2, 5);
+    expect(body.area).toBeCloseTo((Math.PI / 2) * radius * width, 1);
+  });
+
+  it("rejects obviously self-intersecting route bodies without throwing", () => {
+    const body = deriveRouteBody2D(
+      [
+        testLine({ x: 0, y: 0 }, { x: 2, y: 2 }),
+        testLine({ x: 2, y: 2 }, { x: 0, y: 2 }),
+        testLine({ x: 0, y: 2 }, { x: 2, y: 0 }),
+      ],
+      0.2,
+    );
+
+    expect(body.issues.map((issue) => issue.code)).toContain("self-intersecting-body");
+  });
+
   it("projects chip, layers, components, ports, and top-down cavity placement", () => {
     const project = withComponent(baseProject(), "junction.splitter", 4, 2);
     const scene = projectToSceneGeometry(project);
@@ -439,7 +864,82 @@ describe("geometry-core", () => {
     ).toHaveLength(3);
   });
 
-  it("projects complete rectangular route segments and joint fills", () => {
+  it("keeps asymmetric scene routes aligned to directed source and target ports", () => {
+    const project = asymmetricRoutedProject({ completeRoutes: true });
+    const scene = projectToSceneGeometry(project);
+    const flowLayer = scene.layers.find((layer) => layer.layerId === "layer_flow")!;
+
+    for (const connection of project.connections) {
+      const route = scene.routes.find(
+        (candidate) => candidate.connectionId === connection.id,
+      )!;
+      const sourcePort = project.ports.find(
+        (port) => port.id === connection.sourcePortId,
+      )!;
+      const targetPort = project.ports.find(
+        (port) => port.id === connection.targetPortId,
+      )!;
+      const sourceComponent = project.components.find(
+        (component) => component.id === sourcePort.componentId,
+      )!;
+      const targetComponent = project.components.find(
+        (component) => component.id === targetPort.componentId,
+      )!;
+      const sourceCad = {
+        ...toCadPoint(
+          project,
+          getPhysicalPortPosition(project, sourceComponent, sourcePort),
+          "layer_flow",
+        ),
+        z: flowLayer.zMax,
+      };
+      const targetCad = {
+        ...toCadPoint(
+          project,
+          getPhysicalPortPosition(project, targetComponent, targetPort),
+          "layer_flow",
+        ),
+        z: flowLayer.zMax,
+      };
+
+      expectPoint3D(route.points[0]!, sourceCad);
+      expectPoint3D(route.points.at(-1)!, targetCad);
+    }
+
+    const sampleA = project.components.find((component) =>
+      component.name.includes("Sample inlet"),
+    )!;
+    const sampleAScene = scene.components.find(
+      (component) => component.id === sampleA.id,
+    )!;
+    const sampleAFootprint = deriveComponentFootprint(sampleA)!;
+    const expectedCenter = toCadPoint(
+      project,
+      {
+        x: sampleA.position.x.value + sampleAFootprint.width / 2,
+        y: sampleA.position.y.value + sampleAFootprint.height / 2,
+      },
+      sampleA.layerId,
+    );
+    expect(sampleAScene.center.x).toBeCloseTo(expectedCenter.x);
+    expect(sampleAScene.center.y).toBeCloseTo(expectedCenter.y);
+  });
+
+  it("attributes incomplete 3D route warnings to source and target labels", () => {
+    const project = asymmetricRoutedProject({ completeRoutes: false });
+    const scene = projectToSceneGeometry(project);
+    const warning = scene.warnings.find(
+      (candidate) => candidate.code === "missing-route-width",
+    )!;
+
+    expect(warning.entityType).toBe("physical-route");
+    expect(warning.connectionId).toBe("connection_sample_a_merger");
+    expect(warning.sourceLabel).toBe("Sample inlet / Fluid port");
+    expect(warning.targetLabel).toBe("Merger / Input A");
+    expect(warning.message).toContain("Sample inlet / Fluid port -> Merger / Input A");
+  });
+
+  it("projects complete rectangular route bodies without legacy segment boxes", () => {
     let project = withComponent(baseProject(), "junction.splitter", 1, 1);
     project = withComponent(project, "junction.merger", 6, 1);
     const connection = {
@@ -476,16 +976,233 @@ describe("geometry-core", () => {
     const route = scene.routes[0]!;
 
     expect(route.physicalReady).toBe(true);
-    expect(route.segments).toHaveLength(2);
-    expect(route.jointBoxes).toHaveLength(1);
-    expect(route.segments[0]).toMatchObject({
+    expect(route.segments).toEqual([]);
+    expect(route.jointBoxes).toEqual([]);
+    expect(route.body).toMatchObject({
+      routeId: "route_scene",
+      connectionId: "connection_scene_route",
       width: 0.2,
       depth: 0.1,
       zTop: 1,
       zBottom: 0.9,
-      center: { z: 0.95 },
     });
+    expect(route.body!.area).toBeGreaterThan(0);
+    expect(route.body!.boundary.length).toBeGreaterThan(4);
     expect(route.points.map((point) => point.z)).toEqual([1, 1, 1]);
+  });
+
+  it("derives source and target route body penetration without moving logical endpoints", () => {
+    let project = withComponent(baseProject(), "reservoir.sample-inlet", 1, 1);
+    project = withComponent(project, "chamber.metering", 8, 1);
+    const source = project.components[0]!;
+    const target = project.components[1]!;
+    const sourcePort = project.ports.find(
+      (port) => port.componentId === source.id && port.direction === "output",
+    )!;
+    const targetPort = project.ports.find(
+      (port) => port.componentId === target.id && port.direction === "input",
+    )!;
+    const connection = {
+      id: "connection_penetrated",
+      sourcePortId: sourcePort.id,
+      targetPortId: targetPort.id,
+      metadata: {},
+    };
+    project = parseProject({
+      ...project,
+      connections: [connection],
+      physicalRoutes: [
+        {
+          id: "route_penetrated",
+          connectionId: connection.id,
+          layerId: "layer_flow",
+          pattern: { kind: "straight" },
+          width: { value: 0.5, unit: "mm", provenance: { source: "user-entered" } },
+          depth: { value: 0.1, unit: "mm", provenance: { source: "user-entered" } },
+          metadata: {},
+        },
+      ],
+    });
+    const route = project.physicalRoutes[0]!;
+    const generated = deriveRouteGeometry(project, route);
+    const interfaces = deriveRouteInterfaceExtensions(project, route, 0.5);
+    const extended = deriveRouteBodyPrimitivesWithInterfaces(
+      project,
+      route,
+      generated.primitives,
+      0.5,
+    );
+    const body = deriveRouteBody2D(extended.primitives, 0.5);
+    const sourceFootprint = deriveComponentFootprint(source)!;
+    const targetFootprint = deriveComponentFootprint(target)!;
+
+    expect(interfaces.issues).toEqual([]);
+    expect(interfaces.source?.portId).toBe(sourcePort.id);
+    expect(interfaces.target?.portId).toBe(targetPort.id);
+    expect(
+      isPointInsidePolygon(
+        interfaces.source!.insidePosition,
+        interfaces.source!.footprint,
+      ),
+    ).toBe(true);
+    expect(
+      isPointInsidePolygon(
+        interfaces.target!.insidePosition,
+        interfaces.target!.footprint,
+      ),
+    ).toBe(true);
+    expect(body.issues).toEqual([]);
+    expect(
+      polygonIntersectionArea(
+        body.boundary,
+        getRotatedFootprintCorners(source, sourceFootprint),
+      ),
+    ).toBeGreaterThan(0);
+    expect(
+      polygonIntersectionArea(
+        body.boundary,
+        getRotatedFootprintCorners(target, targetFootprint),
+      ),
+    ).toBeGreaterThan(0);
+    expect(generated.primitives[0]!.start).toMatchObject(
+      getPhysicalPortFrame(project, source, sourcePort).position,
+    );
+    expect(generated.primitives.at(-1)!.end).toMatchObject(
+      getPhysicalPortFrame(project, target, targetPort).position,
+    );
+    expect(deriveRouteGeometry(project, route).actualLength).toBeCloseTo(
+      generated.actualLength,
+    );
+  });
+
+  it("uses each merger physical port frame for interface penetration", () => {
+    const project = asymmetricRoutedProject({ completeRoutes: true });
+    const scene = projectToSceneGeometry(project);
+
+    for (const connection of project.connections) {
+      const route = project.physicalRoutes.find(
+        (candidate) => candidate.connectionId === connection.id,
+      )!;
+      const interfaces = deriveRouteInterfaceExtensions(project, route, 0.2);
+      const sceneRoute = scene.routes.find(
+        (candidate) => candidate.connectionId === connection.id,
+      )!;
+
+      expect(interfaces.issues).toEqual([]);
+      expect(interfaces.source?.portId).toBe(connection.sourcePortId);
+      expect(interfaces.target?.portId).toBe(connection.targetPortId);
+      expect(sceneRoute.physicalReady).toBe(true);
+      expect(sceneRoute.body).toBeDefined();
+    }
+  });
+
+  it("rotates interface penetration with the target port frame", () => {
+    let project = withComponent(baseProject(), "reservoir.sample-inlet", 1, 1);
+    project = withComponent(project, "chamber.metering", 8, 1);
+    const targetId = project.components[1]!.id;
+    project = parseProject({
+      ...project,
+      components: project.components.map((component) =>
+        component.id === targetId
+          ? {
+              ...component,
+              rotation: {
+                value: Math.PI / 2,
+                unit: "rad",
+                provenance: { source: "user-entered" },
+              },
+            }
+          : component,
+      ),
+    });
+    const sourcePort = project.ports.find(
+      (port) =>
+        port.componentId === project.components[0]!.id && port.direction === "output",
+    )!;
+    const targetPort = project.ports.find(
+      (port) =>
+        port.componentId === project.components[1]!.id && port.direction === "input",
+    )!;
+    const connection = {
+      id: "connection_rotated_interface",
+      sourcePortId: sourcePort.id,
+      targetPortId: targetPort.id,
+      metadata: {},
+    };
+    project = parseProject({
+      ...project,
+      connections: [connection],
+      physicalRoutes: [
+        {
+          id: "route_rotated_interface",
+          connectionId: connection.id,
+          layerId: "layer_flow",
+          pattern: { kind: "straight" },
+          width: { value: 0.5, unit: "mm", provenance: { source: "user-entered" } },
+          depth: { value: 0.1, unit: "mm", provenance: { source: "user-entered" } },
+          metadata: {},
+        },
+      ],
+    });
+    const target = project.components[1]!;
+    const frame = getPhysicalPortFrame(project, target, targetPort);
+    const interfaces = deriveRouteInterfaceExtensions(
+      project,
+      project.physicalRoutes[0]!,
+      0.5,
+    );
+
+    expect(interfaces.target?.inward.x).toBeCloseTo(-frame.outward.x);
+    expect(interfaces.target?.inward.y).toBeCloseTo(-frame.outward.y);
+    expect(
+      Math.abs(interfaces.target!.insidePosition.y - interfaces.target!.portPosition.y),
+    ).toBeGreaterThan(0.1);
+  });
+
+  it("uses penetrated bodies in 3D while preserving topology and actual length", () => {
+    const project = asymmetricRoutedProject({ completeRoutes: true });
+    const route = project.physicalRoutes[0]!;
+    const connection = project.connections.find(
+      (candidate) => candidate.id === route.connectionId,
+    )!;
+    const generated = deriveRouteGeometry(project, route);
+    const scene = projectToSceneGeometry(project);
+    const sceneRoute = scene.routes.find(
+      (candidate) => candidate.connectionId === connection.id,
+    )!;
+    const sourceComponent = project.components.find(
+      (component) =>
+        component.id ===
+        project.ports.find((port) => port.id === connection.sourcePortId)!.componentId,
+    )!;
+    const sourceFootprint = deriveComponentFootprint(sourceComponent)!;
+    const sourceCadFootprint = getRotatedFootprintCorners(
+      sourceComponent,
+      sourceFootprint,
+    ).map((point) => {
+      const cad = toCadPoint(project, point, sourceComponent.layerId);
+      return { x: cad.x, y: cad.y };
+    });
+
+    expect(sceneRoute.physicalReady).toBe(true);
+    expect(sceneRoute.body).toBeDefined();
+    expect(
+      polygonIntersectionArea(sceneRoute.body!.boundary, sourceCadFootprint),
+    ).toBeGreaterThan(0);
+    expect(connection.sourcePortId).toBe(project.connections[0]!.sourcePortId);
+    expect(connection.targetPortId).toBe(project.connections[0]!.targetPortId);
+    expect(sceneRoute.actualLength).toBeCloseTo(generated.actualLength);
+    expect(sceneRoute.points[0]).toMatchObject({
+      x: toCadPoint(
+        project,
+        getPhysicalPortPosition(
+          project,
+          sourceComponent,
+          project.ports.find((port) => port.id === connection.sourcePortId)!,
+        ),
+        sourceComponent.layerId,
+      ).x,
+    });
   });
 
   it("classifies incomplete routes as warnings", () => {
@@ -520,6 +1237,8 @@ describe("geometry-core", () => {
 
     expect(scene.routes[0]!.physicalReady).toBe(false);
     expect(scene.routes[0]!.segments).toEqual([]);
+    expect(scene.routes[0]!.body).toBeUndefined();
+    expect(scene.routes[0]!.points.length).toBeGreaterThanOrEqual(2);
     expect(scene.warnings.map((warning) => warning.code)).toEqual(
       expect.arrayContaining([
         "missing-route-width",
@@ -820,6 +1539,106 @@ describe("geometry-core", () => {
     expect(isSerpentinePitchFeasible(0.75, 0.3, 0.5)).toBe(true);
     expect(recommendedSerpentineBendRadius(0.5)).toBe(0.3);
     expect(recommendedSerpentinePitch(0.5, 0.3)).toBe(0.75);
+  });
+
+  it("keeps every serpentine core leg at the requested centerline pitch", () => {
+    const cases = [
+      { pitch: 0.6, bendRadius: 0.3, axis: "horizontal" as const },
+      { pitch: 0.75, bendRadius: 0.3, axis: "horizontal" as const },
+      { pitch: 0.75, bendRadius: 0.3, axis: "vertical" as const },
+    ];
+
+    for (const testCase of cases) {
+      const amplitude = 8;
+      const project = withSerpentineRoute({
+        width: 0.5,
+        depth: 0.2,
+        pitch: testCase.pitch,
+        bendRadius: testCase.bendRadius,
+        amplitude,
+        turnCount: 4,
+        axis: testCase.axis,
+      });
+      const generated = deriveRouteGeometry(project, project.physicalRoutes[0]!);
+
+      expect(generated.issues).toEqual([]);
+      expect(adjacentLegPitches(generated.corePrimitives, amplitude)).toEqual([
+        expect.closeTo(testCase.pitch, 6),
+        expect.closeTo(testCase.pitch, 6),
+        expect.closeTo(testCase.pitch, 6),
+        expect.closeTo(testCase.pitch, 6),
+      ]);
+    }
+  });
+
+  it("uses the same composite U-turn rule for the first and interior turns", () => {
+    const pitch = 0.75;
+    const bendRadius = 0.3;
+    const project = withSerpentineRoute({
+      width: 0.5,
+      depth: 0.2,
+      pitch,
+      bendRadius,
+      amplitude: 8,
+      turnCount: 4,
+    });
+    const generated = deriveRouteGeometry(project, project.physicalRoutes[0]!);
+    const signature = translatedSignature(generated.corePrimitives);
+    const turnSignatures = [0, 1, 2, 3].map((turnIndex) => {
+      const start = 1 + turnIndex * 4;
+      return signature.slice(start, start + 3).map((primitive) => ({
+        kind: primitive.kind,
+        length: primitive.length,
+        radius: "radius" in primitive ? primitive.radius : undefined,
+      }));
+    });
+
+    for (const turn of turnSignatures) {
+      expect(turn).toEqual([
+        {
+          kind: "arc",
+          length: expect.closeTo((Math.PI * bendRadius) / 2, 6),
+          radius: bendRadius,
+        },
+        {
+          kind: "line",
+          length: expect.closeTo(pitch - 2 * bendRadius, 6),
+          radius: undefined,
+        },
+        {
+          kind: "arc",
+          length: expect.closeTo((Math.PI * bendRadius) / 2, 6),
+          radius: bendRadius,
+        },
+      ]);
+    }
+  });
+
+  it("keeps the body clear gap uniform between adjacent serpentine legs", () => {
+    const width = 0.5;
+    const pitch = 0.75;
+    const amplitude = 8;
+    const project = withSerpentineRoute({
+      width,
+      depth: 0.2,
+      pitch,
+      bendRadius: 0.3,
+      amplitude,
+      turnCount: 4,
+    });
+    const generated = deriveRouteGeometry(project, project.physicalRoutes[0]!);
+    const body = deriveRouteBody2D(generated.corePrimitives, width);
+    const clearGaps = adjacentLegPitches(generated.corePrimitives, amplitude).map(
+      (measuredPitch) => measuredPitch - body.width,
+    );
+
+    expect(body.issues).toEqual([]);
+    expect(clearGaps).toEqual([
+      expect.closeTo(pitch - width, 6),
+      expect.closeTo(pitch - width, 6),
+      expect.closeTo(pitch - width, 6),
+      expect.closeTo(pitch - width, 6),
+    ]);
   });
 
   it("generates compact default serpentine geometry without partial turns", () => {
@@ -1223,6 +2042,10 @@ describe("geometry-core", () => {
     expect(projectToSceneGeometry(movedProject).routes[0]!.centerline).toEqual(
       movedGenerated.primitives,
     );
+    expect(projectToSceneGeometry(manualProject).routes[0]!.body?.boundary).not.toEqual(
+      projectToSceneGeometry(movedProject).routes[0]!.body?.boundary,
+    );
+    expect(JSON.stringify(movedProject)).not.toContain("boundary");
   });
 
   it("preserves invalid manual core placement instead of choosing an auto fallback", () => {
@@ -1294,6 +2117,9 @@ describe("geometry-core", () => {
       6,
     );
     expect(generated.coreEnvelope).not.toBeNull();
+    expect(
+      projectToSceneGeometry(project).routes[0]!.body?.boundary.length,
+    ).toBeGreaterThan(generated.primitives.length);
   });
 
   it("generates exact-radius L-tail bends when adjacent segments fit", () => {

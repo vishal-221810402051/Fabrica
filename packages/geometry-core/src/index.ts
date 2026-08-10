@@ -1,4 +1,11 @@
-import type { Component, Layer, PhysicalRoute, Port, Project } from "project-model";
+import type {
+  Component,
+  Connection,
+  Layer,
+  PhysicalRoute,
+  Port,
+  Project,
+} from "project-model";
 import {
   DEFINITION_IDENTITY_EXTENSION,
   PORT_TEMPLATE_METADATA,
@@ -109,10 +116,55 @@ export interface GeneratedRouteGeometry {
   targetDifference?: number;
 }
 
+export interface RouteBodyIssue {
+  code: string;
+  message: string;
+}
+
+export interface RouteBodyBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+export interface RouteBody2D {
+  boundary: Point2D[];
+  leftBoundary: Point2D[];
+  rightBoundary: Point2D[];
+  sampledCenterline: Point2D[];
+  bounds: RouteBodyBounds | null;
+  area: number;
+  width: number;
+  issues: RouteBodyIssue[];
+}
+
+export interface RouteInterfaceExtension {
+  endpoint: "source" | "target";
+  componentId: string;
+  portId: string;
+  portPosition: Point2D;
+  insidePosition: Point2D;
+  outward: Point2D;
+  inward: Point2D;
+  penetration: number;
+  footprint: Point2D[];
+}
+
+export interface RouteInterfaceExtensions {
+  source?: RouteInterfaceExtension;
+  target?: RouteInterfaceExtension;
+  issues: RouteBodyIssue[];
+}
+
 export interface SceneWarning {
   code: string;
   message: string;
   entityId?: string;
+  entityType?: "chip" | "component" | "port" | "physical-route";
+  connectionId?: string;
+  sourceLabel?: string;
+  targetLabel?: string;
   path?: string;
 }
 
@@ -158,6 +210,19 @@ export interface SceneRouteSegmentGeometry {
   zBottom: number;
 }
 
+export interface SceneRouteBodyGeometry {
+  routeId: string;
+  connectionId: string;
+  layerId: string;
+  boundary: Point2D[];
+  bounds: RouteBodyBounds;
+  area: number;
+  width: number;
+  depth: number;
+  zTop: number;
+  zBottom: number;
+}
+
 export interface SceneRouteGeometry {
   id: string;
   connectionId: string;
@@ -170,6 +235,7 @@ export interface SceneRouteGeometry {
   issues: RouteGeometryIssue[];
   segments: SceneRouteSegmentGeometry[];
   jointBoxes: SceneRouteSegmentGeometry[];
+  body?: SceneRouteBodyGeometry;
   width?: number;
   depth?: number;
   solvedAmplitude?: number;
@@ -388,6 +454,491 @@ export function pointDisplayToMm(point: Point2D): Point2D {
   return { x: displayToMm(point.x), y: displayToMm(point.y) };
 }
 
+export const ROUTE_BODY_CHORD_ERROR_MM = 0.01;
+const ROUTE_BODY_MAX_ARC_SEGMENTS = 512;
+
+export function deriveRouteBody2D(
+  primitives: readonly CenterlinePrimitive[],
+  width: number,
+  options?: { chordError?: number },
+): RouteBody2D {
+  const issues: RouteBodyIssue[] = [];
+  const chordError = options?.chordError ?? ROUTE_BODY_CHORD_ERROR_MM;
+  if (!Number.isFinite(width) || width <= 0) {
+    issues.push(routeBodyIssue("invalid-width", "Route body width must be positive"));
+  }
+  if (!Number.isFinite(chordError) || chordError <= 0) {
+    issues.push(
+      routeBodyIssue("invalid-chord-error", "Route body chord error must be positive"),
+    );
+  }
+  if (primitives.length === 0) {
+    issues.push(routeBodyIssue("missing-primitives", "Route body requires primitives"));
+  }
+  if (!bodyPrimitivesFinite(primitives)) {
+    issues.push(
+      routeBodyIssue("non-finite-primitives", "Route body primitives must be finite"),
+    );
+  }
+  if (!pointsContinuous(primitives)) {
+    issues.push(
+      routeBodyIssue(
+        "body-continuity-invalid",
+        "Route body primitives are not continuous",
+      ),
+    );
+  }
+  for (const primitive of primitives) {
+    if (primitive.kind === "arc" && width > 0 && primitive.radius <= width / 2) {
+      issues.push(
+        routeBodyIssue(
+          "arc-radius-too-small",
+          "Route body width cannot be represented around a bend",
+        ),
+      );
+    }
+  }
+  const samples =
+    issues.length === 0
+      ? sampleRouteBodyCenterline(primitives, chordError)
+      : ([] as RouteBodySample[]);
+  if (samples.length < 2 && primitives.length > 0) {
+    issues.push(routeBodyIssue("insufficient-samples", "Route body needs two samples"));
+  }
+
+  const halfWidth = width / 2;
+  const leftBoundary = samples.map((sample) =>
+    addPoint(sample.point, scalePoint(leftNormal(sample.tangent), halfWidth)),
+  );
+  const rightBoundary = samples.map((sample) =>
+    addPoint(sample.point, scalePoint(leftNormal(sample.tangent), -halfWidth)),
+  );
+  let boundary = removeConsecutiveDuplicatePoints([
+    ...leftBoundary,
+    ...[...rightBoundary].reverse(),
+  ]);
+  if (boundary.length > 0 && signedPolygonArea(boundary) < 0) {
+    boundary = [...boundary].reverse();
+  }
+  const area = Math.abs(signedPolygonArea(boundary));
+  if (boundary.length > 0 && area <= 1e-9) {
+    issues.push(
+      routeBodyIssue("non-positive-area", "Route body area must be positive"),
+    );
+  }
+  if (centerlineSamplesSelfIntersect(samples)) {
+    issues.push(
+      routeBodyIssue("self-intersecting-body", "Route body boundary intersects itself"),
+    );
+  }
+  return {
+    boundary,
+    leftBoundary,
+    rightBoundary,
+    sampledCenterline: samples.map((sample) => sample.point),
+    bounds: boundaryBounds(boundary),
+    area,
+    width,
+    issues,
+  };
+}
+
+export function deriveRouteInterfaceExtensions(
+  project: Project,
+  route: PhysicalRoute,
+  routeWidth: number,
+  tolerance = 1e-6,
+): RouteInterfaceExtensions {
+  const issues: RouteBodyIssue[] = [];
+  if (!Number.isFinite(routeWidth) || routeWidth <= 0) {
+    return {
+      issues: [
+        routeBodyIssue(
+          "invalid-interface-route-width",
+          "Route interface penetration requires a positive route width",
+        ),
+      ],
+    };
+  }
+  const connection = project.connections.find(
+    (candidate) => candidate.id === route.connectionId,
+  );
+  if (!connection) {
+    return {
+      issues: [
+        routeBodyIssue(
+          "route-interface-reference-missing",
+          "Route interface references a missing connection",
+        ),
+      ],
+    };
+  }
+  const portsById = new Map(project.ports.map((port) => [port.id, port]));
+  const componentsById = new Map(
+    project.components.map((component) => [component.id, component]),
+  );
+  const source = deriveEndpointInterfaceExtension({
+    project,
+    endpoint: "source",
+    component: componentsById.get(
+      portsById.get(connection.sourcePortId)?.componentId ?? "",
+    ),
+    port: portsById.get(connection.sourcePortId),
+    routeWidth,
+    tolerance,
+    issues,
+  });
+  const target = deriveEndpointInterfaceExtension({
+    project,
+    endpoint: "target",
+    component: componentsById.get(
+      portsById.get(connection.targetPortId)?.componentId ?? "",
+    ),
+    port: portsById.get(connection.targetPortId),
+    routeWidth,
+    tolerance,
+    issues,
+  });
+  return {
+    ...(source ? { source } : {}),
+    ...(target ? { target } : {}),
+    issues,
+  };
+}
+
+export function deriveRouteBodyPrimitivesWithInterfaces(
+  project: Project,
+  route: PhysicalRoute,
+  primitives: readonly CenterlinePrimitive[],
+  routeWidth: number,
+  tolerance = 1e-6,
+): { primitives: CenterlinePrimitive[]; interfaces: RouteInterfaceExtensions } {
+  const interfaces = deriveRouteInterfaceExtensions(
+    project,
+    route,
+    routeWidth,
+    tolerance,
+  );
+  const nextPrimitives = [...primitives];
+  if (interfaces.source && nextPrimitives[0]) {
+    const first = nextPrimitives[0];
+    if (
+      distance(interfaces.source.insidePosition, interfaces.source.portPosition) >
+        tolerance &&
+      distance(first.start, interfaces.source.portPosition) <= 1e-6
+    ) {
+      nextPrimitives.unshift(
+        linePrimitive(interfaces.source.insidePosition, interfaces.source.portPosition),
+      );
+    }
+  }
+  if (interfaces.target && nextPrimitives.at(-1)) {
+    const last = nextPrimitives.at(-1)!;
+    if (
+      distance(interfaces.target.portPosition, interfaces.target.insidePosition) >
+        tolerance &&
+      distance(last.end, interfaces.target.portPosition) <= 1e-6
+    ) {
+      nextPrimitives.push(
+        linePrimitive(interfaces.target.portPosition, interfaces.target.insidePosition),
+      );
+    }
+  }
+  return { primitives: nextPrimitives, interfaces };
+}
+
+export function polygonIntersectionArea(
+  subject: readonly Point2D[],
+  clipPolygon: readonly Point2D[],
+): number {
+  if (subject.length < 3 || clipPolygon.length < 3) {
+    return 0;
+  }
+  const orientation = signedPolygonArea(clipPolygon) >= 0 ? 1 : -1;
+  let output = [...subject];
+  for (let index = 0; index < clipPolygon.length; index += 1) {
+    const clipStart = clipPolygon[index]!;
+    const clipEnd = clipPolygon[(index + 1) % clipPolygon.length]!;
+    const input = output;
+    output = [];
+    if (input.length === 0) {
+      break;
+    }
+    let previous = input[input.length - 1]!;
+    for (const current of input) {
+      const currentInside = isInsideClipEdge(current, clipStart, clipEnd, orientation);
+      const previousInside = isInsideClipEdge(
+        previous,
+        clipStart,
+        clipEnd,
+        orientation,
+      );
+      if (currentInside) {
+        if (!previousInside) {
+          output.push(lineIntersection(previous, current, clipStart, clipEnd));
+        }
+        output.push(current);
+      } else if (previousInside) {
+        output.push(lineIntersection(previous, current, clipStart, clipEnd));
+      }
+      previous = current;
+    }
+  }
+  return Math.abs(signedPolygonArea(removeConsecutiveDuplicatePoints(output)));
+}
+
+export function isPointInsidePolygon(
+  point: Point2D,
+  polygon: readonly Point2D[],
+  tolerance = 1e-9,
+): boolean {
+  if (polygon.length < 3) {
+    return false;
+  }
+  for (let index = 0; index < polygon.length; index += 1) {
+    const start = polygon[index]!;
+    const end = polygon[(index + 1) % polygon.length]!;
+    if (pointSegmentDistance(point, linePrimitive(start, end)) <= tolerance) {
+      return true;
+    }
+  }
+  let inside = false;
+  for (
+    let index = 0, previousIndex = polygon.length - 1;
+    index < polygon.length;
+    previousIndex = index, index += 1
+  ) {
+    const current = polygon[index]!;
+    const previous = polygon[previousIndex]!;
+    const crosses =
+      current.y > point.y !== previous.y > point.y &&
+      point.x <
+        ((previous.x - current.x) * (point.y - current.y)) / (previous.y - current.y) +
+          current.x;
+    if (crosses) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function deriveEndpointInterfaceExtension(input: {
+  project: Project;
+  endpoint: "source" | "target";
+  component: Component | undefined;
+  port: Port | undefined;
+  routeWidth: number;
+  tolerance: number;
+  issues: RouteBodyIssue[];
+}): RouteInterfaceExtension | undefined {
+  if (!input.port || !input.component) {
+    input.issues.push(
+      routeBodyIssue(
+        `${input.endpoint}-interface-reference-missing`,
+        `${input.endpoint} interface endpoint could not be resolved`,
+      ),
+    );
+    return undefined;
+  }
+  const footprint = deriveComponentFootprint(input.component);
+  if (!footprint) {
+    input.issues.push(
+      routeBodyIssue(
+        `${input.endpoint}-interface-cavity-unsupported`,
+        `${input.endpoint} component does not expose supported physical cavity geometry`,
+      ),
+    );
+    return undefined;
+  }
+  const frame = getPhysicalPortFrame(input.project, input.component, input.port);
+  const inward = scalePoint(frame.outward, -1);
+  const footprintPolygon = getRotatedFootprintCorners(input.component, footprint);
+  const penetration = derivePortInterfacePenetration(
+    footprintPolygon,
+    frame.position,
+    inward,
+    input.routeWidth,
+    input.tolerance,
+  );
+  if (penetration <= input.tolerance) {
+    input.issues.push(
+      routeBodyIssue(
+        `${input.endpoint}-interface-overlap-missing`,
+        `${input.endpoint} channel interface cannot penetrate the connected physical cavity`,
+      ),
+    );
+    return undefined;
+  }
+  return {
+    endpoint: input.endpoint,
+    componentId: input.component.id,
+    portId: input.port.id,
+    portPosition: frame.position,
+    insidePosition: addPoint(frame.position, scalePoint(inward, penetration)),
+    outward: frame.outward,
+    inward,
+    penetration,
+    footprint: footprintPolygon,
+  };
+}
+
+export function derivePortInterfacePenetration(
+  footprintPolygon: readonly Point2D[],
+  portPosition: Point2D,
+  inward: Point2D,
+  routeWidth: number,
+  tolerance = 1e-6,
+): number {
+  const direction = normalize(inward);
+  if (!direction || !Number.isFinite(routeWidth) || routeWidth <= 0) {
+    return 0;
+  }
+  const available = rayPolygonExitDistance(
+    portPosition,
+    direction,
+    footprintPolygon,
+    tolerance,
+  );
+  if (available <= tolerance) {
+    return 0;
+  }
+  return Math.min(routeWidth, Math.max(0, available - tolerance));
+}
+
+function rayPolygonExitDistance(
+  origin: Point2D,
+  direction: Point2D,
+  polygon: readonly Point2D[],
+  tolerance: number,
+): number {
+  const distances: number[] = [];
+  for (let index = 0; index < polygon.length; index += 1) {
+    const start = polygon[index]!;
+    const end = polygon[(index + 1) % polygon.length]!;
+    const edge = { x: end.x - start.x, y: end.y - start.y };
+    const denominator = cross(direction, edge);
+    if (Math.abs(denominator) <= tolerance) {
+      continue;
+    }
+    const relative = { x: start.x - origin.x, y: start.y - origin.y };
+    const rayDistance = cross(relative, edge) / denominator;
+    const edgeDistance = cross(relative, direction) / denominator;
+    if (
+      rayDistance > tolerance &&
+      edgeDistance >= -tolerance &&
+      edgeDistance <= 1 + tolerance
+    ) {
+      distances.push(rayDistance);
+    }
+  }
+  return distances.length > 0 ? Math.min(...distances) : 0;
+}
+
+function validateRouteBodyInterfaces(
+  project: Project,
+  route: PhysicalRoute,
+  body: RouteBody2D,
+  placement: CavityPlacement | null,
+  portsById: Map<string, Port>,
+  componentsById: Map<string, Component>,
+  layersById: Map<string, SceneLayerGeometry>,
+): RouteBodyIssue[] {
+  const issues: RouteBodyIssue[] = [];
+  const connection = project.connections.find(
+    (candidate) => candidate.id === route.connectionId,
+  );
+  if (!connection || !placement) {
+    return issues;
+  }
+  for (const endpoint of [
+    { kind: "source" as const, portId: connection.sourcePortId },
+    { kind: "target" as const, portId: connection.targetPortId },
+  ]) {
+    const port = portsById.get(endpoint.portId);
+    const component = port ? componentsById.get(port.componentId) : undefined;
+    const footprint = component ? deriveComponentFootprint(component) : null;
+    const layer = component ? layersById.get(component.layerId) : null;
+    if (!component || !footprint || !layer || footprint.depth === undefined) {
+      issues.push(
+        routeBodyIssue(
+          `${endpoint.kind}-interface-cavity-unsupported`,
+          `${endpoint.kind} component does not expose supported physical cavity geometry`,
+        ),
+      );
+      continue;
+    }
+    const footprintCad = getRotatedFootprintCorners(component, footprint).map(
+      (point) => {
+        const cad = toCadPoint(project, point, component.layerId);
+        return { x: cad.x, y: cad.y };
+      },
+    );
+    const planarOverlap = polygonIntersectionArea(body.boundary, footprintCad);
+    if (planarOverlap <= 1e-9) {
+      issues.push(
+        routeBodyIssue(
+          `${endpoint.kind}-interface-overlap-missing`,
+          `${endpoint.kind} channel body does not overlap the connected physical cavity`,
+        ),
+      );
+    }
+    const componentPlacement = cavityPlacement(layer, footprint.depth, [], {
+      entityId: component.id,
+      path: component.id,
+    });
+    const zOverlap =
+      componentPlacement === null
+        ? 0
+        : Math.min(placement.zTop, componentPlacement.zTop) -
+          Math.max(placement.zBottom, componentPlacement.zBottom);
+    if (zOverlap <= 1e-9) {
+      issues.push(
+        routeBodyIssue(
+          `${endpoint.kind}-interface-z-overlap-missing`,
+          `${endpoint.kind} channel body does not overlap the connected cavity depth`,
+        ),
+      );
+    }
+  }
+  return issues;
+}
+
+function isInsideClipEdge(
+  point: Point2D,
+  start: Point2D,
+  end: Point2D,
+  orientation: number,
+): boolean {
+  return (
+    orientation *
+      cross(
+        { x: end.x - start.x, y: end.y - start.y },
+        {
+          x: point.x - start.x,
+          y: point.y - start.y,
+        },
+      ) >=
+    -1e-9
+  );
+}
+
+function lineIntersection(
+  start: Point2D,
+  end: Point2D,
+  clipStart: Point2D,
+  clipEnd: Point2D,
+): Point2D {
+  const segment = { x: end.x - start.x, y: end.y - start.y };
+  const clip = { x: clipEnd.x - clipStart.x, y: clipEnd.y - clipStart.y };
+  const denominator = cross(segment, clip);
+  if (Math.abs(denominator) <= 1e-12) {
+    return end;
+  }
+  const relative = { x: clipStart.x - start.x, y: clipStart.y - start.y };
+  const distanceAlongSegment = cross(relative, clip) / denominator;
+  return addPoint(start, scalePoint(segment, distanceAlongSegment));
+}
+
 export function snapPhysical(valueMm: number): number {
   assertFinite(valueMm, "Millimeter value");
   return Number((Math.round(valueMm / PHYSICAL_SNAP_MM) * PHYSICAL_SNAP_MM).toFixed(6));
@@ -531,6 +1082,46 @@ export function deriveFullRoutePolyline(
   route: PhysicalRoute,
 ): Point2D[] {
   return deriveRouteGeometry(project, route).points;
+}
+
+export interface RoutePointSample {
+  point: Point2D;
+  tangent: Point2D;
+  distance: number;
+  totalLength: number;
+  primitiveIndex: number;
+}
+
+export function deriveRoutePointAtFraction(
+  primitives: readonly CenterlinePrimitive[],
+  fraction: number,
+): RoutePointSample | null {
+  const lengths = primitives.map(primitiveLength);
+  const totalLength = lengths.reduce((sum, length) => sum + length, 0);
+  if (!Number.isFinite(totalLength) || totalLength <= 0) {
+    return null;
+  }
+  const targetDistance = clamp(fraction, 0, 1) * totalLength;
+  let walked = 0;
+  for (let index = 0; index < primitives.length; index += 1) {
+    const primitive = primitives[index]!;
+    const length = lengths[index]!;
+    if (length <= 0) {
+      continue;
+    }
+    if (walked + length >= targetDistance || index === primitives.length - 1) {
+      return samplePrimitiveAtDistance(
+        primitive,
+        clamp(targetDistance - walked, 0, length),
+        length,
+        targetDistance,
+        totalLength,
+        index,
+      );
+    }
+    walked += length;
+  }
+  return null;
 }
 
 export function deriveRouteGeometry(
@@ -1015,6 +1606,7 @@ function routeToSceneGeometry(
 ): SceneRouteGeometry {
   const layer = layersById.get(route.layerId);
   const routePath = `physicalRoutes.${index}`;
+  const warningContext = routeWarningContext(project, route, portsById, componentsById);
   let generated: GeneratedRouteGeometry;
   try {
     generated = deriveRouteGeometry(project, route);
@@ -1056,52 +1648,70 @@ function routeToSceneGeometry(
   });
 
   if (!project.connections.some((connection) => connection.id === route.connectionId)) {
-    warnings.push({
-      code: "invalid-route-reference",
-      message: "Route references a missing connection",
-      entityId: route.id,
-      path: `${routePath}.connectionId`,
-    });
+    warnings.push(
+      routeSceneWarning(
+        route,
+        warningContext,
+        "invalid-route-reference",
+        "Route references a missing connection",
+        `${routePath}.connectionId`,
+      ),
+    );
   }
   if (!layer) {
-    warnings.push({
-      code: "invalid-route-reference",
-      message: "Route references a missing layer",
-      entityId: route.id,
-      path: `${routePath}.layerId`,
-    });
+    warnings.push(
+      routeSceneWarning(
+        route,
+        warningContext,
+        "invalid-route-reference",
+        "Route references a missing layer",
+        `${routePath}.layerId`,
+      ),
+    );
   }
   if (!route.width) {
-    warnings.push({
-      code: "missing-route-width",
-      message: "Route width is missing; rendering an incomplete guide",
-      entityId: route.id,
-      path: `${routePath}.width`,
-    });
+    warnings.push(
+      routeSceneWarning(
+        route,
+        warningContext,
+        "missing-route-width",
+        "Route width is missing; rendering an incomplete guide",
+        `${routePath}.width`,
+      ),
+    );
   }
   if (!route.depth) {
-    warnings.push({
-      code: "missing-route-depth",
-      message: "Route depth is missing; rendering an incomplete guide",
-      entityId: route.id,
-      path: `${routePath}.depth`,
-    });
+    warnings.push(
+      routeSceneWarning(
+        route,
+        warningContext,
+        "missing-route-depth",
+        "Route depth is missing; rendering an incomplete guide",
+        `${routePath}.depth`,
+      ),
+    );
   }
   if (!route.width || !route.depth) {
-    warnings.push({
-      code: "incomplete-route",
-      message: "Route is not CAD-ready and is shown as a guide only",
-      entityId: route.id,
-      path: routePath,
-    });
+    warnings.push(
+      routeSceneWarning(
+        route,
+        warningContext,
+        "incomplete-route",
+        "Route is not CAD-ready and is shown as a guide only",
+        routePath,
+      ),
+    );
   }
   for (const issue of generated.issues) {
-    warnings.push({
-      code: issue.code,
-      message: issue.message,
-      entityId: route.id,
-      path: issue.path ?? routePath,
-    });
+    warnings.push(
+      routeSceneWarning(
+        route,
+        warningContext,
+        issue.code,
+        issue.message,
+        issue.path ?? routePath,
+      ),
+    );
   }
 
   const placement =
@@ -1111,38 +1721,81 @@ function routeToSceneGeometry(
           path: `${routePath}.depth`,
         })
       : null;
-  const physicalReady = Boolean(
+  const basePhysicalReady = Boolean(
     route.width && route.depth && layer && placement && generated.physicalReady,
   );
-  const segmentPoints = tessellatePrimitives(generated.primitives).map((point) => {
-    const cad = layer
-      ? toCadPoint(project, point, route.layerId)
-      : { x: point.x, y: point.y, z: 0 };
-    return { ...cad, z: layer?.zMax ?? 0 };
-  });
-  const segments =
-    physicalReady && route.width && route.depth && placement
-      ? rectangularRouteSegments(
-          route,
-          segmentPoints,
+  const bodyCandidate =
+    basePhysicalReady && route.width && route.depth && layer && placement
+      ? deriveRouteBody2D(
+          deriveRouteBodyPrimitivesWithInterfaces(
+            project,
+            route,
+            generated.primitives,
+            route.width.value,
+          ).primitives.map((primitive) =>
+            primitiveToCadPrimitive(project, primitive, route.layerId),
+          ),
           route.width.value,
-          route.depth.value,
+        )
+      : null;
+  const interfaceExtensions =
+    basePhysicalReady && route.width
+      ? deriveRouteInterfaceExtensions(project, route, route.width.value)
+      : null;
+  if (interfaceExtensions) {
+    for (const issue of interfaceExtensions.issues) {
+      warnings.push(
+        routeSceneWarning(route, warningContext, issue.code, issue.message, routePath),
+      );
+    }
+  }
+  if (bodyCandidate) {
+    for (const issue of bodyCandidate.issues) {
+      warnings.push(
+        routeSceneWarning(route, warningContext, issue.code, issue.message, routePath),
+      );
+    }
+  }
+  const interfaceIssues =
+    bodyCandidate && bodyCandidate.issues.length === 0 && bodyCandidate.bounds
+      ? validateRouteBodyInterfaces(
+          project,
+          route,
+          bodyCandidate,
           placement,
+          portsById,
+          componentsById,
+          layersById,
         )
       : [];
-  const jointBoxes =
-    physicalReady && route.width && route.depth && placement
-      ? rectangularRouteJoints(
-          route,
-          segmentPoints,
-          route.width.value,
-          route.depth.value,
-          placement,
-        )
-      : [];
+  for (const issue of interfaceIssues) {
+    warnings.push(
+      routeSceneWarning(route, warningContext, issue.code, issue.message, routePath),
+    );
+  }
+  const body =
+    bodyCandidate &&
+    bodyCandidate.issues.length === 0 &&
+    interfaceIssues.length === 0 &&
+    bodyCandidate.bounds &&
+    route.width &&
+    route.depth &&
+    placement
+      ? {
+          routeId: route.id,
+          connectionId: route.connectionId,
+          layerId: route.layerId,
+          boundary: bodyCandidate.boundary,
+          bounds: bodyCandidate.bounds,
+          area: bodyCandidate.area,
+          width: route.width.value,
+          depth: route.depth.value,
+          zTop: placement.zTop,
+          zBottom: placement.zBottom,
+        }
+      : undefined;
+  const physicalReady = Boolean(basePhysicalReady && body);
 
-  void portsById;
-  void componentsById;
   return {
     id: route.id,
     connectionId: route.connectionId,
@@ -1153,8 +1806,9 @@ function routeToSceneGeometry(
     actualLength: generated.actualLength,
     envelope: generated.envelope,
     issues: generated.issues,
-    segments,
-    jointBoxes,
+    segments: [],
+    jointBoxes: [],
+    ...(body ? { body } : {}),
     ...(route.width ? { width: route.width.value } : {}),
     ...(route.depth ? { depth: route.depth.value } : {}),
     ...(generated.solvedAmplitude !== undefined
@@ -1169,89 +1823,94 @@ function routeToSceneGeometry(
   };
 }
 
-function tessellatePrimitives(primitives: readonly CenterlinePrimitive[]): Point2D[] {
-  const points: Point2D[] = [];
-  for (const primitive of primitives) {
-    if (points.length === 0) {
-      points.push(primitive.start);
-    }
-    if (primitive.kind === "line") {
-      points.push(primitive.end);
-      continue;
-    }
-    const steps = Math.max(
-      6,
-      Math.ceil(Math.abs(primitive.sweepAngle) / (Math.PI / 12)),
-    );
-    for (let step = 1; step <= steps; step += 1) {
-      const angle = primitive.startAngle + (primitive.sweepAngle * step) / steps;
-      points.push({
-        x: primitive.center.x + Math.cos(angle) * primitive.radius,
-        y: primitive.center.y + Math.sin(angle) * primitive.radius,
-      });
-    }
-  }
-  return points;
+interface RouteWarningContext {
+  connection: Connection | null;
+  sourceLabel?: string;
+  targetLabel?: string;
 }
 
-function rectangularRouteSegments(
+function routeWarningContext(
+  project: Project,
   route: PhysicalRoute,
-  points: readonly Point3D[],
-  width: number,
-  depth: number,
-  placement: CavityPlacement,
-): SceneRouteSegmentGeometry[] {
-  const segments: SceneRouteSegmentGeometry[] = [];
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const start = points[index]!;
-    const end = points[index + 1]!;
-    const deltaX = end.x - start.x;
-    const deltaY = end.y - start.y;
-    const length = Math.hypot(deltaX, deltaY);
-    if (length === 0) {
-      continue;
-    }
-    segments.push({
-      id: `${route.id}:segment:${index}`,
-      routeId: route.id,
-      connectionId: route.connectionId,
-      layerId: route.layerId,
-      center: {
-        x: (start.x + end.x) / 2,
-        y: (start.y + end.y) / 2,
-        z: placement.zCenter,
-      },
-      length,
-      width,
-      depth,
-      angle: Math.atan2(deltaY, deltaX),
-      zTop: placement.zTop,
-      zBottom: placement.zBottom,
-    });
+  portsById: Map<string, Port>,
+  componentsById: Map<string, Component>,
+): RouteWarningContext {
+  const projectConnection =
+    project.connections.find((connection) => connection.id === route.connectionId) ??
+    null;
+  if (!projectConnection) {
+    return { connection: null };
   }
-  return segments;
+  return {
+    connection: projectConnection,
+    sourceLabel: portEndpointLabel(
+      projectConnection.sourcePortId,
+      portsById,
+      componentsById,
+    ),
+    targetLabel: portEndpointLabel(
+      projectConnection.targetPortId,
+      portsById,
+      componentsById,
+    ),
+  };
 }
 
-function rectangularRouteJoints(
+function routeSceneWarning(
   route: PhysicalRoute,
-  points: readonly Point3D[],
-  width: number,
-  depth: number,
-  placement: CavityPlacement,
-): SceneRouteSegmentGeometry[] {
-  return points.slice(1, -1).map((point, index) => ({
-    id: `${route.id}:joint:${index}`,
-    routeId: route.id,
+  context: RouteWarningContext,
+  code: string,
+  message: string,
+  path: string,
+): SceneWarning {
+  const prefix =
+    context.sourceLabel && context.targetLabel
+      ? `${context.sourceLabel} -> ${context.targetLabel}: `
+      : "";
+  return {
+    code,
+    message: `${prefix}${message}`,
+    entityId: route.id,
+    entityType: "physical-route",
     connectionId: route.connectionId,
-    layerId: route.layerId,
-    center: { x: point.x, y: point.y, z: placement.zCenter },
-    length: width,
-    width,
-    depth,
-    angle: 0,
-    zTop: placement.zTop,
-    zBottom: placement.zBottom,
-  }));
+    ...(context.sourceLabel ? { sourceLabel: context.sourceLabel } : {}),
+    ...(context.targetLabel ? { targetLabel: context.targetLabel } : {}),
+    path,
+  };
+}
+
+function primitiveToCadPrimitive(
+  project: Project,
+  primitive: CenterlinePrimitive,
+  layerId: string,
+): CenterlinePrimitive {
+  const cadPoint = (point: Point2D): Point2D => {
+    const cad = toCadPoint(project, point, layerId);
+    return { x: cad.x, y: cad.y };
+  };
+  if (primitive.kind === "line") {
+    return linePrimitive(cadPoint(primitive.start), cadPoint(primitive.end));
+  }
+  return arcPrimitive(
+    cadPoint(primitive.center),
+    primitive.radius,
+    cadPoint(primitive.start),
+    cadPoint(primitive.end),
+    !primitive.clockwise,
+  );
+}
+
+function portEndpointLabel(
+  portId: string,
+  portsById: Map<string, Port>,
+  componentsById: Map<string, Component>,
+): string | undefined {
+  const port = portsById.get(portId);
+  const component = port ? componentsById.get(port.componentId) : null;
+  if (!port || !component) {
+    return undefined;
+  }
+  return `${component.name} / ${port.name}`;
 }
 
 function generatePatternCenterline(
@@ -2727,8 +3386,234 @@ function linePrimitive(start: Point2D, end: Point2D): CenterlineLine {
   return { kind: "line", start, end, length: distance(start, end) };
 }
 
+interface RouteBodySample {
+  point: Point2D;
+  tangent: Point2D;
+}
+
+function sampleRouteBodyCenterline(
+  primitives: readonly CenterlinePrimitive[],
+  chordError: number,
+): RouteBodySample[] {
+  const samples: RouteBodySample[] = [];
+  for (const primitive of primitives) {
+    const primitiveSamples =
+      primitive.kind === "line"
+        ? sampleLineForBody(primitive)
+        : sampleArcForBody(primitive, chordError);
+    for (const sample of primitiveSamples) {
+      const previous = samples.at(-1);
+      if (
+        previous &&
+        distance(previous.point, sample.point) < 1e-9 &&
+        dot(previous.tangent, sample.tangent) > 1 - 1e-9
+      ) {
+        continue;
+      }
+      samples.push(sample);
+    }
+  }
+  return samples;
+}
+
+function sampleLineForBody(line: CenterlineLine): RouteBodySample[] {
+  const tangent = normalize({
+    x: line.end.x - line.start.x,
+    y: line.end.y - line.start.y,
+  });
+  if (!tangent) {
+    return [];
+  }
+  return [
+    { point: line.start, tangent },
+    { point: line.end, tangent },
+  ];
+}
+
+function sampleArcForBody(arc: CenterlineArc, chordError: number): RouteBodySample[] {
+  const maxAngle = Math.max(
+    1e-6,
+    2 * Math.acos(clamp(1 - chordError / arc.radius, -1, 1)),
+  );
+  const steps = Math.min(
+    ROUTE_BODY_MAX_ARC_SEGMENTS,
+    Math.max(1, Math.ceil(Math.abs(arc.sweepAngle) / maxAngle)),
+  );
+  const samples: RouteBodySample[] = [];
+  for (let index = 0; index <= steps; index += 1) {
+    const angle = arc.startAngle + (arc.sweepAngle * index) / steps;
+    const radial = { x: Math.cos(angle), y: Math.sin(angle) };
+    samples.push({
+      point: {
+        x: arc.center.x + radial.x * arc.radius,
+        y: arc.center.y + radial.y * arc.radius,
+      },
+      tangent: arc.clockwise
+        ? { x: radial.y, y: -radial.x }
+        : { x: -radial.y, y: radial.x },
+    });
+  }
+  return samples;
+}
+
+function leftNormal(tangent: Point2D): Point2D {
+  return { x: -tangent.y, y: tangent.x };
+}
+
+function routeBodyIssue(code: string, message: string): RouteBodyIssue {
+  return { code, message };
+}
+
+function bodyPrimitivesFinite(primitives: readonly CenterlinePrimitive[]): boolean {
+  return primitives.every((primitive) => {
+    const common =
+      pointFinite(primitive.start) &&
+      pointFinite(primitive.end) &&
+      Number.isFinite(primitive.length);
+    if (primitive.kind === "line") {
+      return common;
+    }
+    return (
+      common &&
+      pointFinite(primitive.center) &&
+      Number.isFinite(primitive.radius) &&
+      primitive.radius > 0 &&
+      Number.isFinite(primitive.startAngle) &&
+      Number.isFinite(primitive.sweepAngle)
+    );
+  });
+}
+
+function pointFinite(point: Point2D): boolean {
+  return Number.isFinite(point.x) && Number.isFinite(point.y);
+}
+
+function removeConsecutiveDuplicatePoints(points: readonly Point2D[]): Point2D[] {
+  const output: Point2D[] = [];
+  for (const point of points) {
+    if (output.length === 0 || distance(output[output.length - 1]!, point) > 1e-9) {
+      output.push(point);
+    }
+  }
+  if (output.length > 1 && distance(output[0]!, output[output.length - 1]!) < 1e-9) {
+    output.pop();
+  }
+  return output;
+}
+
+function signedPolygonArea(points: readonly Point2D[]): number {
+  let area = 0;
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index]!;
+    const next = points[(index + 1) % points.length]!;
+    area += current.x * next.y - next.x * current.y;
+  }
+  return area / 2;
+}
+
+function boundaryBounds(points: readonly Point2D[]): RouteBodyBounds | null {
+  if (points.length === 0) {
+    return null;
+  }
+  return points.reduce(
+    (bounds, point) => ({
+      minX: Math.min(bounds.minX, point.x),
+      minY: Math.min(bounds.minY, point.y),
+      maxX: Math.max(bounds.maxX, point.x),
+      maxY: Math.max(bounds.maxY, point.y),
+    }),
+    {
+      minX: points[0]!.x,
+      minY: points[0]!.y,
+      maxX: points[0]!.x,
+      maxY: points[0]!.y,
+    },
+  );
+}
+
+function centerlineSamplesSelfIntersect(samples: readonly RouteBodySample[]): boolean {
+  if (samples.length < 4) {
+    return false;
+  }
+  for (let left = 0; left < samples.length - 1; left += 1) {
+    const leftLine = linePrimitive(samples[left]!.point, samples[left + 1]!.point);
+    for (let right = left + 2; right < samples.length - 1; right += 1) {
+      if (right === left + 1) {
+        continue;
+      }
+      if (
+        distance(leftLine.start, samples[right]!.point) < 1e-9 ||
+        distance(leftLine.start, samples[right + 1]!.point) < 1e-9 ||
+        distance(leftLine.end, samples[right]!.point) < 1e-9 ||
+        distance(leftLine.end, samples[right + 1]!.point) < 1e-9
+      ) {
+        continue;
+      }
+      const rightLine = linePrimitive(samples[right]!.point, samples[right + 1]!.point);
+      if (segmentsIntersect(leftLine, rightLine, 1e-9)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function sumPrimitiveLengths(primitives: readonly CenterlinePrimitive[]): number {
   return primitives.reduce((sum, primitive) => sum + primitive.length, 0);
+}
+
+function primitiveLength(primitive: CenterlinePrimitive): number {
+  if (Number.isFinite(primitive.length) && primitive.length > 0) {
+    return primitive.length;
+  }
+  if (primitive.kind === "line") {
+    return distance(primitive.start, primitive.end);
+  }
+  return Math.abs(primitive.sweepAngle) * primitive.radius;
+}
+
+function samplePrimitiveAtDistance(
+  primitive: CenterlinePrimitive,
+  localDistance: number,
+  primitiveLengthValue: number,
+  distanceAlongRoute: number,
+  totalLength: number,
+  primitiveIndex: number,
+): RoutePointSample {
+  if (primitive.kind === "line") {
+    const ratio = primitiveLengthValue > 0 ? localDistance / primitiveLengthValue : 0;
+    const vector = {
+      x: primitive.end.x - primitive.start.x,
+      y: primitive.end.y - primitive.start.y,
+    };
+    return {
+      point: {
+        x: primitive.start.x + vector.x * ratio,
+        y: primitive.start.y + vector.y * ratio,
+      },
+      tangent: normalize(vector) ?? { x: 0, y: 0 },
+      distance: distanceAlongRoute,
+      totalLength,
+      primitiveIndex,
+    };
+  }
+
+  const ratio = primitiveLengthValue > 0 ? localDistance / primitiveLengthValue : 0;
+  const angle = primitive.startAngle + primitive.sweepAngle * ratio;
+  const sweepSign = primitive.sweepAngle < 0 ? -1 : 1;
+  return {
+    point: {
+      x: primitive.center.x + Math.cos(angle) * primitive.radius,
+      y: primitive.center.y + Math.sin(angle) * primitive.radius,
+    },
+    tangent: normalize({
+      x: -Math.sin(angle) * sweepSign,
+      y: Math.cos(angle) * sweepSign,
+    }) ?? { x: 0, y: 0 },
+    distance: distanceAlongRoute,
+    totalLength,
+    primitiveIndex,
+  };
 }
 
 function removeDuplicatePoints(points: readonly Point2D[]): Point2D[] {

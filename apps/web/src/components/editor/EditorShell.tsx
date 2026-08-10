@@ -154,7 +154,7 @@ export function EditorShell() {
   );
 }
 
-class EditorErrorBoundary extends Component<
+export class EditorErrorBoundary extends Component<
   { children: ReactNode },
   { error: Error | null }
 > {
@@ -177,6 +177,15 @@ class EditorErrorBoundary extends Component<
             The project data is still preserved. Try undoing the last editor action or
             reloading the project.
           </p>
+          <pre>{this.state.error.message}</pre>
+          <button
+            type="button"
+            onClick={() => {
+              this.setState({ error: null });
+            }}
+          >
+            Retry editor
+          </button>
         </section>
       );
     }

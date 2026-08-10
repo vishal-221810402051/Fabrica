@@ -232,6 +232,34 @@ edge remains an incomplete guide. When it has duplicate physical routes, the
 projection follows the Connection inspector policy and treats the route as an
 integrity conflict instead of silently choosing one duplicate.
 
+Every projected route edge uses the persisted `connectionId` as its React Flow
+edge ID and as `edge.data.connectionId`. The transient project/editor store is
+the single authority for engineering selection. React Flow may report node
+selection for component selection, but physical-route edges are not React Flow
+selection authorities. Route readiness affects engineering feedback, not
+clickability: complete routes, incomplete guides, invalid fallbacks, manual
+primitives, and serpentine tails all remain selectable through the same
+connection identity with an interaction hit area of at least 24 px. The rendered
+route SVG owns a direct transparent interaction stroke that adaptively trims
+away from port handles while retaining a center hit segment for short visible
+routes. Direct 2D route interaction, serpentine core overlay clicks, and 3D
+route clicks all restore Selection scope idempotently, clear component
+selection, and show the Channel / Connection inspector for that connection.
+The selected channel is presented in engineering red in both 2D and 3D; this is
+pure UI state and does not change apparent route width, depth, geometry, or
+exported Project data. Other routes keep their normal unselected colors.
+Selection state, hover state, drag preview state, and interaction geometry
+remain transient UI data and are never serialized.
+
+The Channel / Connection inspector is always available for a single selected
+connection, including incomplete and invalid physical routes. It keeps topology
+fields read-only, exposes editable pattern, width, depth, bend radius, and
+route-specific parameters, and applies through the canonical
+`updatePhysicalRouteProperties` mutation. Successful applies keep the
+connection selected and show `Channel properties updated`; invalid applies show
+`Channel update blocked`; true no-op applies show `No channel changes to
+apply`. These notices are transient UI state and are not serialized.
+
 For serpentine routes, hard geometry requires bend radius greater than half the
 route width, `pitch >= 2 * bendRadius`, and `pitch > route width`. These are
 centerline/body geometry checks, not manufacturing DRC. Compact editor defaults
@@ -245,11 +273,16 @@ center fixed and regenerate tails from the changed physical port frames.
 `axis: auto` is resolved to an explicit axis on successful route apply, and
 target-length sizing is converted to explicit amplitude when solved.
 
-Selecting a single manual serpentine route renders a UI-only serpentine core
-overlay derived from `geometry-core`'s core envelope. Dragging the overlay
-translates only `pattern.placement.coreCenter`, snaps the committed center to
-the existing 0.1 mm physical grid, and creates one history operation on drag
-stop. The overlay, hover state, and drag preview are never serialized. The
+Selecting a single manual serpentine route renders a thin UI-only serpentine
+core overlay derived from `geometry-core`'s core envelope. The overlay is a drag
+affordance, not physical channel geometry, and it must not visually thicken or
+duplicate the selected route. Dragging the overlay translates only
+`pattern.placement.coreCenter`, snaps the committed center to the existing
+0.1 mm physical grid, and creates one history operation on drag stop. Clicking
+the overlay without dragging reselects the parent connection and opens the
+route inspector; dragging preserves the existing core movement workflow and
+does not commit movement on a simple click. The overlay, hover state, and drag
+preview are never serialized. The
 inspector also exposes Auto/Manual placement, Core X/Y draft fields, Center
 core, derived geometric limits, generated turn count, core envelope, and a
 Compact to fit action. Compact to fit adjusts only draft pitch and bend radius,

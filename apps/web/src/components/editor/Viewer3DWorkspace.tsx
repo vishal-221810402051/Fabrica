@@ -4,8 +4,8 @@ import {
   projectToSceneGeometry,
   type SceneComponentGeometry,
   type SceneGeometry,
+  type SceneRouteBodyGeometry,
   type SceneRouteGeometry,
-  type SceneRouteSegmentGeometry,
 } from "geometry-core";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { OrbitControls as OrbitControlsType } from "three/examples/jsm/controls/OrbitControls.js";
@@ -13,10 +13,16 @@ import * as THREE from "three";
 
 import { projectStore } from "../../state/projectStore";
 import { useProjectStore } from "../../state/projectStore.react";
+import {
+  cameraPosition,
+  cameraUp,
+  sceneTarget,
+  toThreePosition,
+  type ViewPreset,
+} from "./viewer3dCamera";
 
 type CameraMode = "perspective" | "orthographic";
 type MaterialMode = "transparent" | "solid" | "wireframe";
-type ViewPreset = "top" | "front" | "side" | "isometric";
 type ViewerPointerEvent = { stopPropagation: () => void };
 
 interface ViewerUiState {
@@ -312,7 +318,7 @@ function ComponentMesh(props: {
   );
 }
 
-function RouteMesh(props: {
+export function RouteMesh(props: {
   route: SceneRouteGeometry;
   selected: boolean;
   materialMode: MaterialMode;
@@ -328,55 +334,92 @@ function RouteMesh(props: {
               event.stopPropagation();
               projectStore
                 .getState()
-                .setSelectedConnections([props.route.connectionId]);
+                .selectConnectionForInspection(props.route.connectionId);
             }}
           >
             <sphereGeometry args={[0.08, 10, 8]} />
-            <meshBasicMaterial color={props.selected ? "#0f766e" : "#94a3b8"} />
+            <meshBasicMaterial color={props.selected ? "#dc2626" : "#94a3b8"} />
           </mesh>
         ))}
       </group>
     );
   }
-  return (
-    <group>
-      {[...props.route.segments, ...props.route.jointBoxes].map((segment) => (
-        <RouteSegmentMesh
-          key={segment.id}
-          segment={segment}
-          selected={props.selected}
-          materialMode={props.materialMode}
-        />
-      ))}
-    </group>
-  );
+  return props.route.body ? (
+    <RouteBodyMesh
+      body={props.route.body}
+      selected={props.selected}
+      materialMode={props.materialMode}
+    />
+  ) : null;
 }
 
-function RouteSegmentMesh(props: {
-  segment: SceneRouteSegmentGeometry;
+function RouteBodyMesh(props: {
+  body: SceneRouteBodyGeometry;
   selected: boolean;
   materialMode: MaterialMode;
 }) {
+  const shape = useMemo(() => createRouteShape(props.body.boundary), [props.body]);
+  const geometry = useMemo(
+    () => createRouteExtrudeGeometry(shape, props.body.depth),
+    [props.body.depth, shape],
+  );
+  useEffect(() => () => geometry.dispose(), [geometry]);
   return (
     <mesh
-      position={toThreePosition(props.segment.center)}
-      rotation={[0, -props.segment.angle, 0]}
+      data-testid={`viewer3d-route-body-${props.body.connectionId}`}
+      position={[0, props.body.zBottom, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
       onClick={(event: ViewerPointerEvent) => {
         event.stopPropagation();
-        projectStore.getState().setSelectedConnections([props.segment.connectionId]);
+        projectStore.getState().selectConnectionForInspection(props.body.connectionId);
       }}
     >
-      <boxGeometry
-        args={[props.segment.length, props.segment.depth, props.segment.width]}
-      />
+      <primitive attach="geometry" object={geometry} />
       <meshStandardMaterial
-        color={props.selected ? "#0f766e" : "#2563eb"}
+        color={props.selected ? "#dc2626" : "#2563eb"}
         transparent={props.materialMode === "transparent"}
         opacity={props.materialMode === "transparent" ? 0.72 : 1}
         wireframe={props.materialMode === "wireframe"}
       />
     </mesh>
   );
+}
+
+type ShapeLike = {
+  moveTo: (x: number, y: number) => void;
+  lineTo: (x: number, y: number) => void;
+  closePath: () => void;
+};
+
+type GeometryLike = {
+  dispose: () => void;
+};
+
+function createRouteShape(boundary: readonly { x: number; y: number }[]): ShapeLike {
+  const ShapeCtor = (THREE as unknown as { Shape: new () => ShapeLike }).Shape;
+  const shape = new ShapeCtor();
+  const first = boundary[0];
+  if (!first) {
+    return shape;
+  }
+  shape.moveTo(first.x, first.y);
+  for (const point of boundary.slice(1)) {
+    shape.lineTo(point.x, point.y);
+  }
+  shape.closePath();
+  return shape;
+}
+
+function createRouteExtrudeGeometry(shape: ShapeLike, depth: number): GeometryLike {
+  const ExtrudeGeometryCtor = (
+    THREE as unknown as {
+      ExtrudeGeometry: new (
+        shape: ShapeLike,
+        options: { depth: number; bevelEnabled: boolean },
+      ) => GeometryLike;
+    }
+  ).ExtrudeGeometry;
+  return new ExtrudeGeometryCtor(shape, { depth, bevelEnabled: false });
 }
 
 function LayerBoundary(props: { scene: SceneGeometry; layerId: string }) {
@@ -407,22 +450,28 @@ function CameraRig(props: {
   useEffect(() => {
     const controls = new OrbitControls(camera, gl.domElement);
     controls.enableDamping = true;
+    camera.up.copy(cameraUp(props.preset));
     controls.target.copy(sceneTarget(props.scene));
+    camera.lookAt(controls.target);
+    camera.updateProjectionMatrix();
     controls.update();
     controlsRef.current = controls;
     return () => {
       controls.dispose();
       controlsRef.current = null;
     };
-  }, [camera, gl.domElement, props.scene]);
+  }, [camera, gl.domElement, props.preset, props.scene]);
 
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) {
       return;
     }
+    camera.up.copy(cameraUp(props.preset));
     camera.position.copy(cameraPosition(props.scene, props.preset));
     controls.target.copy(sceneTarget(props.scene));
+    camera.lookAt(controls.target);
+    camera.updateProjectionMatrix();
     controls.update();
   }, [camera, props.preset, props.resetSignal, props.scene]);
 
@@ -476,11 +525,13 @@ function Viewer3DFallback(props: {
             key={route.id}
             data-testid={`viewer3d-route-${route.connectionId}`}
             className={
-              props.selectedConnectionIds.includes(route.connectionId) ? "active" : ""
+              props.selectedConnectionIds.includes(route.connectionId)
+                ? "active channel-active"
+                : ""
             }
             onClick={(event) => {
               event.stopPropagation();
-              projectStore.getState().setSelectedConnections([route.connectionId]);
+              projectStore.getState().selectConnectionForInspection(route.connectionId);
             }}
           >
             {route.physicalReady ? "Route" : "Incomplete route"}
@@ -522,8 +573,10 @@ function initialCamera(
   cameraMode: CameraMode,
 ) {
   const position = cameraPosition(scene, preset);
+  const up = cameraUp(preset);
   const common = {
     position: [position.x, position.y, position.z] as [number, number, number],
+    up: [up.x, up.y, up.z] as [number, number, number],
     near: 0.01,
     far: 1000,
   };
@@ -532,44 +585,8 @@ function initialCamera(
     : { ...common, fov: 45 };
 }
 
-function cameraPosition(scene: SceneGeometry, preset: ViewPreset): THREE.Vector3 {
-  const target = sceneTarget(scene);
-  const span = Math.max(scene.chip.width, scene.chip.height, scene.chip.depth, 1);
-  const distance = span * 1.8;
-  if (preset === "top") {
-    return new THREE.Vector3(target.x, target.y + distance, target.z);
-  }
-  if (preset === "front") {
-    return new THREE.Vector3(target.x, target.y + span * 0.45, target.z + distance);
-  }
-  if (preset === "side") {
-    return new THREE.Vector3(target.x + distance, target.y + span * 0.45, target.z);
-  }
-  return new THREE.Vector3(
-    target.x + distance,
-    target.y + distance * 0.8,
-    target.z + distance,
-  );
-}
-
-function sceneTarget(scene: SceneGeometry): THREE.Vector3 {
-  return new THREE.Vector3(
-    scene.chip.width / 2,
-    scene.chip.depth / 2,
-    -scene.chip.height / 2,
-  );
-}
-
 function chipPosition(scene: SceneGeometry): [number, number, number] {
   return [scene.chip.width / 2, scene.chip.depth / 2, -scene.chip.height / 2];
-}
-
-function toThreePosition(point: {
-  x: number;
-  y: number;
-  z: number;
-}): [number, number, number] {
-  return [point.x, point.z, -point.y];
 }
 
 function materialModeSettings(mode: MaterialMode): { chipOpacity: number } {

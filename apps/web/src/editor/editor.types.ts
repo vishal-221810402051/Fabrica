@@ -94,6 +94,17 @@ export interface EditorEdgeData extends Record<string, unknown> {
   routePath: string;
   routeWidthPx: number;
   physicalReady: boolean;
+  interactionDisabled?: boolean;
+}
+
+export interface EditorChannelEditPoint {
+  connectionId: ConnectionId;
+  position: Point;
+  visibleDiameterPx: number;
+  hitDiameterPx: number;
+  selected: boolean;
+  physicalReady: boolean;
+  label: string;
 }
 
 export interface InsertComponentOptions {

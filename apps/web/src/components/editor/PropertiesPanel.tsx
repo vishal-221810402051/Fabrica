@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   compactSerpentineRouteDraft,
   isSerpentinePitchFeasible,
@@ -71,6 +71,11 @@ import { useProjectStore } from "../../state/projectStore.react";
 
 interface FieldError {
   field: string;
+  message: string;
+}
+
+interface EditorNotice {
+  kind: "success" | "error" | "info";
   message: string;
 }
 
@@ -318,11 +323,20 @@ function MultiComponentSelectionEditor(props: {
 }
 
 function ConnectionEditor(props: { project: Project; connectionId: string }) {
+  const [notice, setNotice] = useState<EditorNotice | null>(null);
   const context = resolveConnectionRouteContext(props.project, props.connectionId);
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+    const timeout = globalThis.setTimeout(() => setNotice(null), 2500);
+    return () => globalThis.clearTimeout(timeout);
+  }, [notice]);
+
   if (!context.connection) {
     return (
       <section className="property-group">
-        <h3>Connection</h3>
+        <h3>Channel / Connection</h3>
         <p className="muted">Selected connection no longer exists.</p>
       </section>
     );
@@ -331,6 +345,8 @@ function ConnectionEditor(props: { project: Project; connectionId: string }) {
     <PhysicalRouteProperties
       project={props.project}
       context={context}
+      notice={notice}
+      onNotice={setNotice}
       key={physicalRouteDraftKey(context, props.connectionId)}
     />
   );
@@ -339,6 +355,8 @@ function ConnectionEditor(props: { project: Project; connectionId: string }) {
 function PhysicalRouteProperties(props: {
   project: Project;
   context: ConnectionRouteContext;
+  notice: EditorNotice | null;
+  onNotice: (notice: EditorNotice | null) => void;
 }) {
   const route =
     props.context.physicalRoute.status === "unique"
@@ -490,6 +508,13 @@ function PhysicalRouteProperties(props: {
     }
   }
   function handleApply() {
+    const connectionId = props.context.connection?.id;
+    if (!connectionId) {
+      const message = "Channel update blocked: Selected connection no longer exists.";
+      setErrors([{ field: "connection", message }]);
+      props.onNotice({ kind: "error", message });
+      return;
+    }
     const validationErrors = validateRouteDraft({
       patternKind,
       pitch,
@@ -498,12 +523,16 @@ function PhysicalRouteProperties(props: {
     });
     if (validationErrors.length > 0) {
       setErrors(validationErrors);
+      props.onNotice({
+        kind: "error",
+        message: `Channel update blocked: ${validationErrors[0]!.message}`,
+      });
       return;
     }
-    applyProjectUpdate(setErrors, "Update route properties", () =>
-      updatePhysicalRouteProperties(
+    try {
+      const nextProject = updatePhysicalRouteProperties(
         props.project,
-        props.context.connection!.id as ConnectionId,
+        connectionId as ConnectionId,
         {
           pattern: buildRoutePattern({
             existingPattern: routePattern,
@@ -524,16 +553,48 @@ function PhysicalRouteProperties(props: {
           depth: optionalQuantity(depth, "Depth"),
           bendRadius: optionalQuantity(bendRadius, "Bend radius"),
         },
-      ),
-    );
+      );
+      if (nextProject === props.project) {
+        setErrors([]);
+        projectStore.getState().setEditorError(null);
+        projectStore.getState().selectConnectionForInspection(connectionId);
+        props.onNotice({ kind: "info", message: "No channel changes to apply" });
+        return;
+      }
+      projectStore
+        .getState()
+        .updateProject(() => nextProject, "Update route properties");
+      projectStore.getState().selectConnectionForInspection(connectionId);
+      projectStore.getState().setEditorError(null);
+      setErrors([]);
+      props.onNotice({ kind: "success", message: "Channel properties updated" });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Property update failed";
+      const message = `Channel update blocked: ${reason}`;
+      setErrors([{ field: "form", message: reason }]);
+      projectStore.getState().setEditorError({
+        code:
+          error instanceof Error && "code" in error
+            ? String(error.code)
+            : "EDITOR_PARAMETER_INVALID",
+        message: reason,
+      });
+      props.onNotice({ kind: "error", message });
+    }
   }
   return (
     <FormSection
-      title="Connection"
+      title="Channel / Connection"
       errors={formErrors}
       onApply={handleApply}
       disabled={applyDisabled}
     >
+      {props.notice ? (
+        <EditorNoticeView
+          notice={props.notice}
+          onDismiss={() => props.onNotice(null)}
+        />
+      ) : null}
       <ReadOnly
         label="Connection ID"
         value={props.context.connection?.id ?? "missing"}
@@ -553,7 +614,7 @@ function PhysicalRouteProperties(props: {
       />
       <ReadOnly label="Route status" value={formatRouteResolution(props.context)} />
       <ReadOnly label="Route ID" value={route?.id ?? "created on apply"} />
-      <ReadOnly label="Route layer" value={route?.layerId ?? "endpoint layer"} />
+      <ReadOnly label="Layer" value={route?.layerId ?? "endpoint layer"} />
       <ReadOnly label="Readiness" value={formatRouteReadiness(props.context)} />
       {props.context.issues.length > 0 ? (
         <p className="muted">Issues: {props.context.issues.join(", ")}</p>
@@ -783,6 +844,26 @@ function PhysicalRouteProperties(props: {
   );
 }
 
+function EditorNoticeView(props: { notice: EditorNotice; onDismiss: () => void }) {
+  const className =
+    props.notice.kind === "error"
+      ? "editor-feedback editor-feedback-error"
+      : props.notice.kind === "success"
+        ? "editor-feedback editor-feedback-ok"
+        : "editor-feedback editor-feedback-info";
+  return (
+    <div
+      role={props.notice.kind === "error" ? "alert" : "status"}
+      className={className}
+    >
+      <span>{props.notice.message}</span>
+      <button type="button" onClick={props.onDismiss} aria-label="Dismiss notice">
+        Dismiss
+      </button>
+    </div>
+  );
+}
+
 function formatLaneContext(context: ConnectionRouteContext): string {
   if (context.laneContext.status === "same-lane") {
     return context.laneContext.lane.name;
@@ -964,6 +1045,15 @@ function LaneEditor(props: {
   const [name, setName] = useState(lane?.name ?? "");
   const [selectedRouteId, setSelectedRouteId] = useState("");
   const [errors, setErrors] = useState<FieldError[]>([]);
+  const [routeNotice, setRouteNotice] = useState<EditorNotice | null>(null);
+  useEffect(() => {
+    if (!routeNotice) {
+      return;
+    }
+    const timeout = globalThis.setTimeout(() => setRouteNotice(null), 2500);
+    return () => globalThis.clearTimeout(timeout);
+  }, [routeNotice]);
+
   if (!lane) {
     return null;
   }
@@ -1060,6 +1150,8 @@ function LaneEditor(props: {
         <PhysicalRouteProperties
           project={props.project}
           context={resolveConnectionRouteContext(props.project, selectedConnection.id)}
+          notice={routeNotice}
+          onNotice={setRouteNotice}
           key={physicalRouteDraftKey(
             resolveConnectionRouteContext(props.project, selectedConnection.id),
             selectedConnection.id,

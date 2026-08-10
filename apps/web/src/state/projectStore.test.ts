@@ -112,6 +112,125 @@ describe("project store", () => {
     expect(store.getState().inspectorScope).toBe("selection");
   });
 
+  it("repairs stale inspector scope when React Flow reselects the same connection", () => {
+    const store = createProjectStore();
+    store.getState().createNewProject();
+    const before = store.getState().project;
+
+    store.getState().setSelectedConnections(["connection_direct"]);
+    store.getState().setInspectorScope("project");
+    store.getState().setEditorSelection({
+      componentIds: [],
+      connectionIds: ["connection_direct"],
+    });
+
+    expect(store.getState().project).toBe(before);
+    expect(store.getState().selectedConnectionIds).toEqual(["connection_direct"]);
+    expect(store.getState().selectedComponentIds).toEqual([]);
+    expect(store.getState().inspectorScope).toBe("selection");
+  });
+
+  it("lets a single connection selection win over stale component selection", () => {
+    const store = createProjectStore();
+    store.getState().createNewProject();
+
+    store.setState({
+      selectedComponentIds: ["component_stale"],
+      selectedConnectionIds: ["connection_direct"],
+      inspectorScope: "lane",
+    });
+    store.getState().setEditorSelection({
+      componentIds: ["component_stale"],
+      connectionIds: ["connection_direct"],
+    });
+
+    expect(store.getState().selectedConnectionIds).toEqual(["connection_direct"]);
+    expect(store.getState().selectedComponentIds).toEqual([]);
+    expect(store.getState().inspectorScope).toBe("selection");
+  });
+
+  it("keeps already-canonical connection selection as a true no-op", () => {
+    const store = createProjectStore();
+    store.getState().createNewProject();
+    const before = store.getState().project;
+
+    store.getState().setSelectedConnections(["connection_direct"]);
+    let notifications = 0;
+    const unsubscribe = store.subscribe(() => {
+      notifications += 1;
+    });
+
+    store.getState().setSelectedConnections(["connection_direct"]);
+    store.getState().setEditorSelection({
+      componentIds: [],
+      connectionIds: ["connection_direct"],
+    });
+    unsubscribe();
+
+    expect(notifications).toBe(0);
+    expect(store.getState().project).toBe(before);
+    expect(store.getState().selectedConnectionIds).toEqual(["connection_direct"]);
+    expect(store.getState().selectedComponentIds).toEqual([]);
+    expect(store.getState().inspectorScope).toBe("selection");
+  });
+
+  it("keeps valid editor reconciliation as a true no-op", () => {
+    const store = createProjectStore();
+    store.getState().createNewProject();
+    const project = store.getState().project!;
+    store.setState({
+      selectedComponentIds: [project.components[0]?.id ?? "component_absent"],
+      selectedConnectionIds: [],
+      activeLayerId: project.layers[0]!.id,
+      activeLaneId: null,
+      dragPreviewPositions: {},
+      connectionPreview: null,
+    });
+    if (!project.components[0]) {
+      store.setState({ selectedComponentIds: [] });
+    }
+    let notifications = 0;
+    const unsubscribe = store.subscribe(() => {
+      notifications += 1;
+    });
+
+    store.getState().reconcileEditorState();
+    unsubscribe();
+
+    expect(notifications).toBe(0);
+  });
+
+  it("selects a connection for inspection through the canonical route action", () => {
+    const store = createProjectStore();
+    store.getState().createNewProject();
+    const before = store.getState().project;
+
+    store.setState({
+      selectedComponentIds: ["component_stale"],
+      selectedConnectionIds: [],
+      inspectorScope: "project",
+    });
+    store.getState().selectConnectionForInspection("connection_direct");
+
+    expect(store.getState().project).toBe(before);
+    expect(store.getState().selectedConnectionIds).toEqual(["connection_direct"]);
+    expect(store.getState().selectedComponentIds).toEqual([]);
+    expect(store.getState().inspectorScope).toBe("selection");
+  });
+
+  it("repairs stale inspector scope when reselecting the same component", () => {
+    const store = createProjectStore();
+    store.getState().createNewProject();
+
+    store.getState().setSelectedComponents(["component_direct"]);
+    store.getState().setInspectorScope("project");
+    store.getState().setSelectedComponents(["component_direct"]);
+
+    expect(store.getState().selectedComponentIds).toEqual(["component_direct"]);
+    expect(store.getState().selectedConnectionIds).toEqual([]);
+    expect(store.getState().inspectorScope).toBe("selection");
+  });
+
   it("groups multiple transaction mutations into one history entry and can cancel", () => {
     const store = createProjectStore();
     store.getState().createNewProject();

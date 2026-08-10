@@ -2,7 +2,9 @@ import type { Edge, Node } from "@xyflow/react";
 import {
   deriveComponentFootprint,
   deriveFullRoutePolyline,
+  deriveRoutePointAtFraction,
   deriveRouteGeometry,
+  getPhysicalPortFrame,
   mmToDisplay,
   pointMmToDisplay,
   type CenterlinePrimitive,
@@ -20,6 +22,7 @@ import { createHandleId } from "./handleIds";
 import { resolveConnectionRouteContext } from "./connectionRouteSelectors";
 import type {
   EditorEdgeData,
+  EditorChannelEditPoint,
   EditorNodeData,
   EditorTransientState,
 } from "./editor.types";
@@ -28,11 +31,17 @@ import { editorError } from "./editorErrors";
 export interface EditorProjection {
   nodes: Node<EditorNodeData>[];
   edges: Edge<EditorEdgeData>[];
+  channelEditPoints: EditorChannelEditPoint[];
   componentsById: Map<string, Component>;
   portsById: Map<string, Port>;
   connectionsById: Map<string, Connection>;
   connectionCountsByPortId: Map<string, number>;
 }
+
+const CHANNEL_EDIT_POINT_MIN_DIAMETER_PX = 12;
+const CHANNEL_EDIT_POINT_MAX_DIAMETER_PX = 24;
+const CHANNEL_EDIT_POINT_VISUAL_PADDING_PX = 6;
+const CHANNEL_EDIT_POINT_HIT_DIAMETER_PX = 30;
 
 export function deriveEditorProjection(
   project: Project,
@@ -126,6 +135,7 @@ export function deriveEditorProjection(
     };
   });
 
+  const channelEditPoints: EditorChannelEditPoint[] = [];
   const edges = project.connections.map((connection) => {
     const sourcePort = portsById.get(connection.sourcePortId);
     const targetPort = portsById.get(connection.targetPortId);
@@ -161,6 +171,18 @@ export function deriveEditorProjection(
         routePoints = [];
       }
     }
+    const editPoint = deriveChannelEditPoint({
+      project,
+      connection,
+      route,
+      routeGeometry: routeContext.geometry,
+      componentsById,
+      portsById,
+      selected: transient.selectedConnectionIds.includes(connection.id),
+    });
+    if (editPoint) {
+      channelEditPoints.push(editPoint);
+    }
     return {
       id: connection.id,
       type: "physicalRoute",
@@ -185,6 +207,7 @@ export function deriveEditorProjection(
   return {
     nodes,
     edges,
+    channelEditPoints,
     componentsById,
     portsById,
     connectionsById,
@@ -220,6 +243,106 @@ function primitivesToSvgPath(primitives: readonly CenterlinePrimitive[]): string
     );
   }
   return commands.join(" ");
+}
+
+function deriveChannelEditPoint(input: {
+  project: Project;
+  connection: Connection;
+  route: Project["physicalRoutes"][number] | null;
+  routeGeometry: ReturnType<typeof deriveRouteGeometry> | null | undefined;
+  componentsById: Map<string, Component>;
+  portsById: Map<string, Port>;
+  selected: boolean;
+}): EditorChannelEditPoint | null {
+  const routeWidthPx = input.route?.width
+    ? mmToDisplay(input.route.width.value)
+    : undefined;
+  const visibleDiameterPx =
+    routeWidthPx === undefined
+      ? CHANNEL_EDIT_POINT_MIN_DIAMETER_PX
+      : clamp(
+          routeWidthPx + CHANNEL_EDIT_POINT_VISUAL_PADDING_PX,
+          CHANNEL_EDIT_POINT_MIN_DIAMETER_PX,
+          CHANNEL_EDIT_POINT_MAX_DIAMETER_PX,
+        );
+  let point = input.route
+    ? deriveRouteEditPoint(input.project, input.route, input.routeGeometry)
+    : null;
+  point ??= deriveConnectionGuideMidpoint(
+    input.project,
+    input.connection,
+    input.componentsById,
+    input.portsById,
+  );
+  if (!point) {
+    return null;
+  }
+  const sourcePort = input.portsById.get(input.connection.sourcePortId);
+  const targetPort = input.portsById.get(input.connection.targetPortId);
+  const sourceComponent = sourcePort
+    ? input.componentsById.get(sourcePort.componentId)
+    : null;
+  const targetComponent = targetPort
+    ? input.componentsById.get(targetPort.componentId)
+    : null;
+  return {
+    connectionId: input.connection.id,
+    position: pointMmToDisplay(point),
+    visibleDiameterPx,
+    hitDiameterPx: CHANNEL_EDIT_POINT_HIT_DIAMETER_PX,
+    selected: input.selected,
+    physicalReady: Boolean(input.route?.width && input.route.depth),
+    label: `Edit channel from ${sourceComponent?.name ?? "source"} to ${
+      targetComponent?.name ?? "target"
+    }`,
+  };
+}
+
+function deriveRouteEditPoint(
+  project: Project,
+  route: Project["physicalRoutes"][number],
+  cachedGeometry: ReturnType<typeof deriveRouteGeometry> | null | undefined,
+) {
+  try {
+    const geometry = cachedGeometry ?? deriveRouteGeometry(project, route);
+    const sample = deriveRoutePointAtFraction(geometry.primitives, 0.5);
+    return sample?.point ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function deriveConnectionGuideMidpoint(
+  project: Project,
+  connection: Connection,
+  componentsById: Map<string, Component>,
+  portsById: Map<string, Port>,
+) {
+  try {
+    const sourcePort = portsById.get(connection.sourcePortId);
+    const targetPort = portsById.get(connection.targetPortId);
+    const sourceComponent = sourcePort
+      ? componentsById.get(sourcePort.componentId)
+      : null;
+    const targetComponent = targetPort
+      ? componentsById.get(targetPort.componentId)
+      : null;
+    if (!sourcePort || !targetPort || !sourceComponent || !targetComponent) {
+      return null;
+    }
+    const source = getPhysicalPortFrame(project, sourceComponent, sourcePort).position;
+    const target = getPhysicalPortFrame(project, targetComponent, targetPort).position;
+    return {
+      x: (source.x + target.x) / 2,
+      y: (source.y + target.y) / 2,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 function layoutPortHandles(ports: EditorNodeData["ports"]): EditorNodeData["ports"] {

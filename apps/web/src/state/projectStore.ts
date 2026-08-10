@@ -251,7 +251,8 @@ export function createProjectStore() {
       const state = get();
       if (
         sameStrings(state.selectedComponentIds, next) &&
-        state.selectedConnectionIds.length === 0
+        state.selectedConnectionIds.length === 0 &&
+        state.inspectorScope === "selection"
       ) {
         return;
       }
@@ -263,6 +264,10 @@ export function createProjectStore() {
     },
     setSelectedConnections: (connectionIds) => {
       const next = unique(connectionIds);
+      if (next.length === 1) {
+        get().selectConnectionForInspection(next[0]!);
+        return;
+      }
       const state = get();
       if (
         sameStrings(state.selectedConnectionIds, next) &&
@@ -277,34 +282,68 @@ export function createProjectStore() {
         inspectorScope: "selection" as const,
       });
     },
-    setInspectorScope: (scope) => set({ inspectorScope: scope }),
-    setEditorSelection: (selection) => {
-      const nextComponents = unique(selection.componentIds ?? []);
-      const nextConnections = unique(selection.connectionIds ?? []);
+    selectConnectionForInspection: (connectionId) => {
       const state = get();
       if (
+        sameStrings(state.selectedConnectionIds, [connectionId]) &&
+        state.selectedComponentIds.length === 0 &&
+        state.inspectorScope === "selection"
+      ) {
+        return;
+      }
+      set({
+        selectedConnectionIds: [connectionId],
+        selectedComponentIds: [],
+        inspectorScope: "selection" as const,
+      });
+    },
+    setInspectorScope: (scope) => {
+      if (get().inspectorScope === scope) {
+        return;
+      }
+      set({ inspectorScope: scope });
+    },
+    setEditorSelection: (selection) => {
+      const nextConnections = unique(selection.connectionIds ?? []);
+      const nextComponents =
+        nextConnections.length === 1 ? [] : unique(selection.componentIds ?? []);
+      const state = get();
+      const nextInspectorScope =
+        nextComponents.length > 0 || nextConnections.length > 0
+          ? "selection"
+          : state.inspectorScope;
+      if (
         sameStrings(state.selectedComponentIds, nextComponents) &&
-        sameStrings(state.selectedConnectionIds, nextConnections)
+        sameStrings(state.selectedConnectionIds, nextConnections) &&
+        state.inspectorScope === nextInspectorScope
       ) {
         return;
       }
       set({
         selectedComponentIds: nextComponents,
         selectedConnectionIds: nextConnections,
-        inspectorScope:
-          nextComponents.length > 0 || nextConnections.length > 0
-            ? "selection"
-            : state.inspectorScope,
+        inspectorScope: nextInspectorScope,
       });
     },
-    clearEditorSelection: () =>
+    clearEditorSelection: () => {
+      const state = get();
+      if (
+        state.selectedComponentIds.length === 0 &&
+        state.selectedConnectionIds.length === 0 &&
+        state.inspectorScope === "selection" &&
+        state.connectionPreview === null &&
+        state.editorError === null
+      ) {
+        return;
+      }
       set({
         selectedComponentIds: [],
         selectedConnectionIds: [],
         inspectorScope: "selection" as const,
         connectionPreview: null,
         editorError: null,
-      }),
+      });
+    },
     setActiveLayerId: (layerId) => set({ activeLayerId: layerId }),
     setActiveLaneId: (laneId) => set({ activeLaneId: laneId }),
     setPaletteFilter: (filter) =>
@@ -313,7 +352,12 @@ export function createProjectStore() {
         paletteSearch: filter.search ?? state.paletteSearch,
       })),
     setDragPreviewPositions: (positions) => set({ dragPreviewPositions: positions }),
-    clearDragPreviewPositions: () => set({ dragPreviewPositions: {} }),
+    clearDragPreviewPositions: () => {
+      if (isEmptyRecord(get().dragPreviewPositions)) {
+        return;
+      }
+      set({ dragPreviewPositions: {} });
+    },
     setConnectionPreview: (preview) => set({ connectionPreview: preview }),
     setEditorError: (error) => set({ editorError: error }),
     reconcileEditorState: () => {
@@ -326,19 +370,37 @@ export function createProjectStore() {
       const connectionIds = new Set(state.project.connections.map((item) => item.id));
       const layerIds = new Set(state.project.layers.map((item) => item.id));
       const laneIds = new Set(state.project.lanes.map((item) => item.id));
+      const nextSelectedComponentIds = state.selectedComponentIds.filter((id) =>
+        componentIds.has(id),
+      );
+      const nextSelectedConnectionIds = state.selectedConnectionIds.filter((id) =>
+        connectionIds.has(id),
+      );
+      const nextActiveLayerId = layerIds.has(state.activeLayerId ?? "")
+        ? state.activeLayerId
+        : (state.project.layers[0]?.id ?? null);
+      const nextActiveLaneId = laneIds.has(state.activeLaneId ?? "")
+        ? state.activeLaneId
+        : null;
+      const shouldClearDragPreview = !isEmptyRecord(state.dragPreviewPositions);
+      const shouldClearConnectionPreview = state.connectionPreview !== null;
+      if (
+        sameStrings(state.selectedComponentIds, nextSelectedComponentIds) &&
+        sameStrings(state.selectedConnectionIds, nextSelectedConnectionIds) &&
+        state.activeLayerId === nextActiveLayerId &&
+        state.activeLaneId === nextActiveLaneId &&
+        !shouldClearDragPreview &&
+        !shouldClearConnectionPreview
+      ) {
+        return;
+      }
       set({
-        selectedComponentIds: state.selectedComponentIds.filter((id) =>
-          componentIds.has(id),
-        ),
-        selectedConnectionIds: state.selectedConnectionIds.filter((id) =>
-          connectionIds.has(id),
-        ),
-        activeLayerId: layerIds.has(state.activeLayerId ?? "")
-          ? state.activeLayerId
-          : (state.project.layers[0]?.id ?? null),
-        activeLaneId: laneIds.has(state.activeLaneId ?? "") ? state.activeLaneId : null,
-        dragPreviewPositions: {},
-        connectionPreview: null,
+        selectedComponentIds: nextSelectedComponentIds,
+        selectedConnectionIds: nextSelectedConnectionIds,
+        activeLayerId: nextActiveLayerId,
+        activeLaneId: nextActiveLaneId,
+        ...(shouldClearDragPreview ? { dragPreviewPositions: {} } : {}),
+        ...(shouldClearConnectionPreview ? { connectionPreview: null } : {}),
       });
     },
   }));
@@ -402,4 +464,8 @@ function sameStrings(left: readonly string[], right: readonly string[]): boolean
   return (
     left.length === right.length && left.every((value, index) => value === right[index])
   );
+}
+
+function isEmptyRecord(value: Record<string, unknown>): boolean {
+  return Object.keys(value).length === 0;
 }

@@ -43,6 +43,7 @@ describe("editor projection", () => {
     expect(projection.nodes[0]!.id).toBe(connected.components[0]!.id);
     expect(projection.nodes[0]!.position).toEqual({ x: 24, y: 48 });
     expect(projection.edges[0]!.id).toBe(connected.connections[0]!.id);
+    expect(projection.edges[0]!.data!.connectionId).toBe(connected.connections[0]!.id);
     expect(projection.edges[0]!.type).toBe("physicalRoute");
     expect(projection.edges[0]!.sourceHandle).toBe(createHandleId(source.id, "source"));
     expect(projection.edges[0]!.targetHandle).toBe(createHandleId(target.id, "target"));
@@ -51,7 +52,145 @@ describe("editor projection", () => {
     expect(projection.nodes[0]!.data.ports.length).toBe(2);
     expect(projection.edges[0]!.data!.routePoints).toHaveLength(2);
     expect(projection.edges[0]!.data!.routeWidthPx).toBe(2);
+    expect(projection.channelEditPoints).toHaveLength(1);
+    expect(projection.channelEditPoints[0]).toMatchObject({
+      connectionId: connected.connections[0]!.id,
+      visibleDiameterPx: 12,
+      hitDiameterPx: 30,
+      selected: true,
+    });
     expect(JSON.stringify(connected)).toBe(before);
+  });
+
+  it("keeps complete straight routes selectable through the persisted connection id", () => {
+    let project = makeProject();
+    project = insertComponentFromDefinition(project, {
+      definitionKey: "channel.rectangular",
+      layerId: project.layers[0]!.id,
+      position: { x: 1, y: 1 },
+    }).project;
+    project = insertComponentFromDefinition(project, {
+      definitionKey: "filter.debris",
+      layerId: project.layers[0]!.id,
+      position: { x: 5, y: 1 },
+    }).project;
+    const source = project.ports.find(
+      (port) =>
+        port.componentId === project.components[0]!.id && port.direction === "output",
+    )!;
+    const target = project.ports.find(
+      (port) =>
+        port.componentId === project.components[1]!.id && port.direction === "input",
+    )!;
+    const connected = createProjectConnection(project, source.id, target.id);
+    project = updatePhysicalRouteProperties(
+      connected.project,
+      connected.connection!.id,
+      {
+        pattern: { kind: "straight" },
+        width: { value: 0.2, unit: "mm", provenance: { source: "user-entered" } },
+        depth: { value: 0.1, unit: "mm", provenance: { source: "user-entered" } },
+      },
+    );
+
+    const projection = deriveEditorProjection(project, {
+      selectedComponentIds: [],
+      selectedConnectionIds: [connected.connection!.id],
+    });
+
+    expect(projection.edges[0]!.id).toBe(connected.connection!.id);
+    expect(projection.edges[0]!.data!.connectionId).toBe(connected.connection!.id);
+    expect(projection.edges[0]!.type).toBe("physicalRoute");
+    expect(projection.edges[0]!.interactionWidth).toBe(24);
+    expect(projection.edges[0]!.selected).toBe(true);
+    expect(projection.edges[0]!.data!.selected).toBe(true);
+    expect(projection.edges[0]!.data!.physicalReady).toBe(true);
+    expect(projection.channelEditPoints).toHaveLength(1);
+    expect(projection.channelEditPoints[0]!.connectionId).toBe(
+      connected.connection!.id,
+    );
+    expect(projection.channelEditPoints[0]!.selected).toBe(true);
+  });
+
+  it("places channel edit points on route half-length and clamps visual size by width", () => {
+    let project = makeProject();
+    project = insertComponentFromDefinition(project, {
+      definitionKey: "channel.rectangular",
+      layerId: project.layers[0]!.id,
+      position: { x: 1, y: 1 },
+    }).project;
+    project = insertComponentFromDefinition(project, {
+      definitionKey: "filter.debris",
+      layerId: project.layers[0]!.id,
+      position: { x: 8, y: 1 },
+    }).project;
+    const source = project.ports.find(
+      (port) =>
+        port.componentId === project.components[0]!.id && port.direction === "output",
+    )!;
+    const target = project.ports.find(
+      (port) =>
+        port.componentId === project.components[1]!.id && port.direction === "input",
+    )!;
+    const connected = createProjectConnection(project, source.id, target.id);
+    project = updatePhysicalRouteProperties(
+      connected.project,
+      connected.connection!.id,
+      {
+        pattern: { kind: "straight" },
+        width: { value: 0.5, unit: "mm", provenance: { source: "user-entered" } },
+        depth: { value: 0.1, unit: "mm", provenance: { source: "user-entered" } },
+      },
+    );
+    const geometry = deriveRouteGeometry(project, project.physicalRoutes[0]!);
+    const projection = deriveEditorProjection(project, {
+      selectedComponentIds: [],
+      selectedConnectionIds: [],
+    });
+
+    expect(projection.channelEditPoints).toHaveLength(1);
+    expect(projection.channelEditPoints[0]!.position).toEqual({
+      x: mmToDisplay(
+        geometry.primitives[0]!.start.x +
+          (geometry.primitives[0]!.end.x - geometry.primitives[0]!.start.x) / 2,
+      ),
+      y: mmToDisplay(
+        geometry.primitives[0]!.start.y +
+          (geometry.primitives[0]!.end.y - geometry.primitives[0]!.start.y) / 2,
+      ),
+    });
+    expect(projection.channelEditPoints[0]!.visibleDiameterPx).toBe(18);
+    expect(projection.channelEditPoints[0]!.hitDiameterPx).toBe(30);
+
+    const missingWidth = deriveEditorProjection(
+      {
+        ...project,
+        physicalRoutes: project.physicalRoutes.map((route) => ({
+          ...route,
+          width: undefined,
+        })),
+      },
+      { selectedComponentIds: [], selectedConnectionIds: [] },
+    );
+    expect(missingWidth.channelEditPoints[0]!.visibleDiameterPx).toBe(12);
+
+    const largeWidth = deriveEditorProjection(
+      updatePhysicalRouteProperties(project, connected.connection!.id, {
+        width: { value: 2, unit: "mm", provenance: { source: "user-entered" } },
+      }),
+      { selectedComponentIds: [], selectedConnectionIds: [] },
+    );
+    expect(largeWidth.channelEditPoints[0]!.visibleDiameterPx).toBe(24);
+
+    const changedDepth = deriveEditorProjection(
+      updatePhysicalRouteProperties(project, connected.connection!.id, {
+        depth: { value: 1.5, unit: "mm", provenance: { source: "user-entered" } },
+      }),
+      { selectedComponentIds: [], selectedConnectionIds: [] },
+    );
+    expect(changedDepth.channelEditPoints[0]!.visibleDiameterPx).toBe(
+      projection.channelEditPoints[0]!.visibleDiameterPx,
+    );
   });
 
   it("handles bidirectional ports with distinct visual handles", () => {
@@ -264,6 +403,9 @@ describe("editor projection", () => {
     expect(projection.edges.every((edge) => (edge.interactionWidth ?? 0) >= 24)).toBe(
       true,
     );
+    expect(projection.edges.map((edge) => edge.data!.connectionId)).toEqual(
+      project.connections.map((connection) => connection.id),
+    );
     expect(projection.edges.map((edge) => edge.id)).toEqual(
       project.connections.map((connection) => connection.id),
     );
@@ -311,6 +453,7 @@ describe("editor projection", () => {
     });
 
     expect(projection.edges[0]!.id).toBe(connection.id);
+    expect(projection.edges[0]!.data!.connectionId).toBe(connection.id);
     expect(projection.edges[0]!.type).toBe("physicalRoute");
     expect(projection.edges[0]!.interactionWidth).toBe(24);
     expect(projection.edges[0]!.data!.routePath).toBe("");
@@ -397,8 +540,12 @@ describe("editor projection", () => {
 
     expect(projection.edges).toHaveLength(2);
     expect(projection.edges[0]!.id).toBe(project.connections[0]!.id);
+    expect(projection.edges[0]!.data!.connectionId).toBe(project.connections[0]!.id);
     expect(projection.edges[0]!.type).toBe("physicalRoute");
+    expect(projection.edges[0]!.interactionWidth).toBe(24);
+    expect(projection.edges[0]!.data!.routePath).not.toBe("");
     expect(projection.edges[1]!.data!.physicalReady).toBe(false);
+    expect(projection.edges[1]!.data!.connectionId).toBe(project.connections[1]!.id);
     expect(projection.edges[1]!.selected).toBe(true);
   });
 

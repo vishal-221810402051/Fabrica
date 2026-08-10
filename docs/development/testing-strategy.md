@@ -157,6 +157,29 @@ route resolution, route readiness, no-op route applies, selected-connection
 delete/undo behavior, 2D/3D selection consistency, and atomic multi-component
 lane assignment for connected components.
 
+Focused Phase 9B route-body tests must cover continuous rectangular body
+derivation from authoritative centerline primitives: horizontal, vertical,
+diagonal, reversed, line/arc, arc-radius, serpentine, and moved manual-core
+fixtures. Scene tests must verify one body per ready route, exact `zTop` /
+`zBottom`, no body for incomplete routes, source/target port termination,
+positive channel-to-cavity interface overlap, rotated-port penetration,
+unchanged logical port endpoints/actual length, and route warning attribution.
+Web tests must verify the ready route body is the clickable 3D route identity,
+selected channel red feedback is presentation-only, material modes continue to
+render through one mesh, top-view orientation remains aligned with 2D, and 2D
+route click regressions still open the Channel / Connection inspector with
+editable width/depth plus success, error, and no-op apply notices.
+
+Focused Phase 9B-C route-selection tests must verify that the project/editor
+store is the single authority for selected connections, React Flow edge
+selection cannot overwrite a direct route click or new-connection auto
+selection, stale selected-edge callbacks are ignored, node selection still maps
+to component selection, pane clicks clear transient selection explicitly, and
+short visible routes retain an adaptive interaction hit segment. Geometry tests
+must lock serpentine centerline pitch for every adjacent core-leg pair, first
+and interior U-turn equivalence, and uniform body clear gap of
+`pitch - route width` without changing the production serpentine solver.
+
 ## Fixture Strategy
 
 Fixtures should be small, deterministic, versioned, and intentionally reviewed. They should cover canonical project-model examples, units, calculations, validation findings, layout constraints, CAD inputs, STEP/STL export expectations, and migration paths.

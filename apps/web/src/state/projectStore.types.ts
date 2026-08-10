@@ -82,6 +82,7 @@ export interface ProjectStoreActions {
   setRecentProjects: (projects: RecentProjectSummary[]) => void;
   setExternalRevisionWarning: (warning: ExternalRevisionWarning | null) => void;
   setSelectedComponents: (componentIds: string[]) => void;
+  selectConnectionForInspection: (connectionId: string) => void;
   setSelectedConnections: (connectionIds: string[]) => void;
   setInspectorScope: (scope: InspectorScope) => void;
   setEditorSelection: (selection: {
