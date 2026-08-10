@@ -59,11 +59,30 @@ detection, automatic placement, and automatic routing are deferred.
 Viewport zoom and pan are session-only. They are not exported and do not trigger
 autosave.
 
-Phase 8A also projects a chip boundary, physical component footprints, physical
-port positions, and physical route polylines from the authoritative Project.
+Phase 8B projects physical routes from `geometry-core` centerline primitives.
 Logical connections remain topology-only; physical route records carry route
-layer, intermediate waypoints, optional width, optional depth, and optional bend
-radius. Route endpoints are derived from physical ports and are not persisted.
+layer, pattern, optional width, optional depth, and optional bend radius. Route
+endpoints are derived from physical ports and are not persisted. Straight,
+manual, and serpentine routes render from the same line/arc primitives used by
+3D preview and future CAD.
+
+Serpentine rendering is fully derived by `geometry-core`. The editor does not
+calculate tail or core geometry in React Flow. A generated serpentine contains
+adaptive entry-tail primitives, stable core primitives, adaptive exit-tail
+primitives, and a combined primitive list. The inspector displays entry tail,
+serpentine core, exit tail, and total length. Invalid serpentine configurations
+keep the logical fallback edge clickable and show route issue messages instead
+of rendering malformed serpentine geometry.
+
+The serpentine solver separates parameter-owned core shape from placement and
+tail routing. `geometry-core` derives the relative core from turn count, pitch,
+bend radius, amplitude, and explicit orientation. Auto placement tries a
+bounded deterministic set of legal translations within chip bounds. Manual
+placement uses the persisted chip-coordinate `coreCenter` exactly and
+regenerates only the adaptive entry and exit tails. Tail candidates escalate
+from straight and L to Z and extended dogleg forms, with exact-radius filleting
+required at every corner. Project parameters are never silently relaxed; a
+ready serpentine must generate the requested turn count exactly.
 
 Phase 9A adds a lazy-loaded synchronized 3D preview mode beside the 2D editor:
 
@@ -85,8 +104,8 @@ does not use browser CSG and does not claim production CAD boolean
 subtraction. Component and route cavities are placed top-down within their
 owning layer. Incomplete routes render as nonmanufacturable guides and keep
 their missing-width/missing-depth warnings derived in UI state only. Route
-`bendRadius` renders as a sharp polyline approximation with an explicit viewer
-warning.
+`bendRadius` is represented in `geometry-core` with tangent circular arc
+primitives where feasible.
 
 3D camera mode, material mode, view preset, layer visibility, port marker
 visibility, and OrbitControls state are UI-only. They are not serialized,
@@ -178,7 +197,63 @@ component ownership, and registry/template metadata remain read-only.
 Layer or lane reassignment is rejected if any existing incident connection
 would become incompatible. Connections are not removed automatically.
 
-Multiple selected components show a read-only summary. Multi-edit is deferred.
+Multiple selected components expose one narrow bulk operation: atomic lane
+assignment to no lane or one existing lane. The command builds the complete
+proposed Project first, synchronizes `component.laneId` with
+`lane.componentIds`, validates all affected existing connections against that
+complete proposal, and then commits one undoable mutation. This avoids the
+connected-component lane-assignment deadlock without weakening lane
+compatibility.
+
+Phase 8B makes the Lane inspector an engineering workflow. It derives lane
+components from canonical `component.laneId`, lists chambers, discovers
+associated physical routes only when both route endpoints are in the lane,
+shows cross-lane/unassigned route warnings, derives total actual channel
+length, and edits the selected route pattern and channel dimensions without
+adding `physicalRoute.laneId`. Chamber editing reuses selected component
+properties; chamber dimensions are not copied onto lanes.
+
+Clicking a 2D connection wire selects the persisted `connection.id`, clears
+component selection, switches the properties panel back to Selection scope, and
+opens the same Connection/PhysicalRoute inspector used from Lane route lists.
+The visible route stroke reflects physical channel width, while an independent
+screen-space hit target keeps narrow channels selectable. Selection and hover
+styling are UI-only. The inspector shows connection endpoints, derived lane
+context, route cardinality, readiness, generated geometry values, and editable
+route parameters. Lane context is read-only; changing lane membership remains a
+component or selected-components operation. Manual route waypoints are
+preserved and counted, but canvas waypoint editing is still deferred.
+
+The 2D projection consumes only authoritative `geometry-core` line and arc
+primitives for physical routes. Serpentine routes are not redrawn with
+React-specific math; the SVG path and React Flow interaction path use the same
+primitive-derived route path. When a connection has zero physical routes, the
+edge remains an incomplete guide. When it has duplicate physical routes, the
+projection follows the Connection inspector policy and treats the route as an
+integrity conflict instead of silently choosing one duplicate.
+
+For serpentine routes, hard geometry requires bend radius greater than half the
+route width, `pitch >= 2 * bendRadius`, and `pitch > route width`. These are
+centerline/body geometry checks, not manufacturing DRC. Compact editor defaults
+are recommendations only. `pitch == 2R` derives two tangent quarter arcs with
+no transverse straight; `pitch > 2R` derives quarter arc, transverse straight,
+and quarter arc. Persisted amplitude defines the core run span. Component
+movement can translate an auto core within its legal placement region and
+reshape derived tails, but it does not stretch or collapse the relative core.
+For manual placement, component movement and rotation leave the persisted core
+center fixed and regenerate tails from the changed physical port frames.
+`axis: auto` is resolved to an explicit axis on successful route apply, and
+target-length sizing is converted to explicit amplitude when solved.
+
+Selecting a single manual serpentine route renders a UI-only serpentine core
+overlay derived from `geometry-core`'s core envelope. Dragging the overlay
+translates only `pattern.placement.coreCenter`, snaps the committed center to
+the existing 0.1 mm physical grid, and creates one history operation on drag
+stop. The overlay, hover state, and drag preview are never serialized. The
+inspector also exposes Auto/Manual placement, Core X/Y draft fields, Center
+core, derived geometric limits, generated turn count, core envelope, and a
+Compact to fit action. Compact to fit adjusts only draft pitch and bend radius,
+preserves turn count and amplitude, and requires Apply before project mutation.
 
 Duplication uses the Phase 4 duplication helper, offsets by 1 mm, rewrites IDs,
 preserves parameters and provenance, and does not duplicate external
@@ -195,9 +270,9 @@ editable content.
 
 ## Deferred
 
-Phase 9A does not implement drag-from-palette, minimap, split-screen editing,
-automatic layout, automatic routing, obstacle avoidance, browser CSG,
-collision detection, topology validation, waste-path checks, hydraulic
+Phase 8B/9A do not implement drag-from-palette, minimap, split-screen editing,
+automatic layout, global automatic routing, obstacle avoidance, browser CSG,
+full manufacturing DRC, topology validation, waste-path checks, hydraulic
 calculations, manufacturing-rule engines, CAD generation, STEP/STL export, GPT
 generation, backend persistence, authentication, collaboration, or simulation.
 

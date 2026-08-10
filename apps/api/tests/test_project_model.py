@@ -12,6 +12,7 @@ from fabrica_api.project_model import (
     ProjectIntegrityError,
     ProjectModelValidationError,
     UnsupportedVersionError,
+    migrate_project_document,
     parse_project,
     serialize_project,
     stringify_project,
@@ -39,7 +40,7 @@ def load_fixture(name: str) -> dict[str, Any]:
 def test_python_project_model_accepts_valid_fixtures(fixture_name: str) -> None:
     project = parse_project(load_fixture(fixture_name))
 
-    assert project.schemaVersion == "0.2.0"
+    assert project.schemaVersion == "0.4.0"
     assert project.physicalRoutes == []
 
 
@@ -113,5 +114,56 @@ def test_python_project_model_migrates_0_1_routes() -> None:
     project = parse_project(load_fixture("minimal-valid-project.json"))
     serialized = serialize_project(project)
 
-    assert serialized["schemaVersion"] == "0.2.0"
+    assert serialized["schemaVersion"] == "0.4.0"
     assert serialized["physicalRoutes"] == []
+
+
+def test_python_project_model_migrates_serpentine_placement() -> None:
+    payload = load_fixture("current-version-roundtrip.json")
+    payload["schemaVersion"] = "0.3.0"
+    payload["physicalRoutes"] = [
+        {
+            "id": "route_serpentine",
+            "connectionId": "connection_serpentine",
+            "layerId": "layer_roundtrip",
+            "pattern": {
+                "kind": "serpentine",
+                "turnCount": 4,
+                "pitch": {
+                    "value": 0.75,
+                    "unit": "mm",
+                    "provenance": {"source": "user-entered"},
+                },
+                "axis": "horizontal",
+                "sizing": {
+                    "mode": "explicit",
+                    "amplitude": {
+                        "value": 8,
+                        "unit": "mm",
+                        "provenance": {"source": "user-entered"},
+                    },
+                },
+            },
+            "width": {
+                "value": 0.5,
+                "unit": "mm",
+                "provenance": {"source": "user-entered"},
+            },
+            "depth": {
+                "value": 0.2,
+                "unit": "mm",
+                "provenance": {"source": "user-entered"},
+            },
+            "bendRadius": {
+                "value": 0.3,
+                "unit": "mm",
+                "provenance": {"source": "user-entered"},
+            },
+            "metadata": {},
+        }
+    ]
+
+    migrated = migrate_project_document(payload)
+
+    assert migrated["schemaVersion"] == "0.4.0"
+    assert migrated["physicalRoutes"][0]["pattern"]["placement"] == {"mode": "auto"}

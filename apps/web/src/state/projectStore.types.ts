@@ -4,6 +4,7 @@ import type { ComponentCategory } from "microfluidic-components";
 import type {
   ConnectionPreviewState,
   EditorStructuredError,
+  InspectorScope,
   Point,
 } from "../editor/editor.types";
 import type { ProjectHistory } from "../history/projectHistory.types";
@@ -43,6 +44,7 @@ export interface ProjectStoreState {
   history: ProjectHistory;
   selectedComponentIds: string[];
   selectedConnectionIds: string[];
+  inspectorScope: InspectorScope;
   activeLayerId: string | null;
   activeLaneId: string | null;
   paletteCategory: ComponentCategory | "all";
@@ -81,6 +83,7 @@ export interface ProjectStoreActions {
   setExternalRevisionWarning: (warning: ExternalRevisionWarning | null) => void;
   setSelectedComponents: (componentIds: string[]) => void;
   setSelectedConnections: (connectionIds: string[]) => void;
+  setInspectorScope: (scope: InspectorScope) => void;
   setEditorSelection: (selection: {
     componentIds?: string[];
     connectionIds?: string[];

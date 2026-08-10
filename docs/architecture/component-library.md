@@ -133,7 +133,14 @@ independent layers and vias are not introduced.
 
 Lane policies are `required`, `optional`, `forbidden`, and `shared`. Local
 compatibility rejects different explicit lanes unless at least one side is
-shared. Lane reachability and complete lane topology are deferred.
+shared. Phase 8B makes `component.laneId` the canonical membership authority
+and keeps `lane.componentIds` as a synchronized index. Physical routes do not
+store lane IDs; route association is derived from connection endpoint component
+lanes.
+
+When already-connected components must move into a lane together, the editor
+uses an atomic selected-components lane assignment so compatibility is checked
+against the complete proposed graph rather than one endpoint at a time.
 
 ## Factory And Duplication
 

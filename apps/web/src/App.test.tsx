@@ -2,7 +2,11 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
-import { insertComponentFromDefinition } from "./editor/editorActions";
+import {
+  createProjectConnection,
+  insertComponentFromDefinition,
+} from "./editor/editorActions";
+import { updatePhysicalRouteProperties } from "./editor/physicalRouteActions";
 import { loadProjectRecord } from "./persistence/projectStorage";
 import { projectStore, resetProjectStoreForTests } from "./state/projectStore";
 
@@ -173,6 +177,80 @@ describe("App", () => {
     expect(screen.getByLabelText(/Y mm/i)).toHaveValue("4");
   });
 
+  it("opens the connection route inspector from selected connection state", async () => {
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("Untitled Project")).toBeInTheDocument();
+    });
+
+    let connectionId = "";
+    act(() => {
+      projectStore.getState().updateProject((project) => {
+        let next = insertComponentFromDefinition(project, {
+          definitionKey: "channel.rectangular",
+          layerId: project.layers[0]!.id,
+          position: { x: 0, y: 0 },
+        }).project;
+        next = insertComponentFromDefinition(next, {
+          definitionKey: "filter.debris",
+          layerId: project.layers[0]!.id,
+          position: { x: 4, y: 0 },
+        }).project;
+        const source = next.ports.find(
+          (port) =>
+            port.componentId === next.components[0]!.id && port.direction === "output",
+        )!;
+        const target = next.ports.find(
+          (port) =>
+            port.componentId === next.components[1]!.id && port.direction === "input",
+        )!;
+        const result = createProjectConnection(next, source.id, target.id);
+        connectionId = result.connection!.id;
+        return updatePhysicalRouteProperties(result.project, connectionId as never, {
+          pattern: {
+            kind: "serpentine",
+            turnCount: 2,
+            pitch: {
+              value: 1,
+              unit: "mm",
+              provenance: { source: "user-entered" },
+            },
+            axis: "horizontal",
+            sizing: {
+              mode: "explicit",
+              amplitude: {
+                value: 2,
+                unit: "mm",
+                provenance: { source: "user-entered" },
+              },
+            },
+            placement: { mode: "auto" },
+          },
+          bendRadius: {
+            value: 0.2,
+            unit: "mm",
+            provenance: { source: "user-entered" },
+          },
+        });
+      }, "Create serpentine connection");
+      projectStore
+        .getState()
+        .setSelectedComponents([projectStore.getState().project!.components[0]!.id]);
+      projectStore.getState().setInspectorScope("project");
+    });
+
+    act(() => {
+      projectStore.getState().setSelectedConnections([connectionId]);
+    });
+
+    expect(projectStore.getState().selectedConnectionIds).toEqual([connectionId]);
+    expect(projectStore.getState().selectedComponentIds).toEqual([]);
+    expect(screen.getByLabelText("Inspector scope")).toHaveValue("selection");
+    expect(screen.getByText(`Connection ID: ${connectionId}`)).toBeInTheDocument();
+    expect(screen.getByText("Route status: Unique physical route")).toBeInTheDocument();
+    expect(screen.getByLabelText("Pattern")).toHaveValue("serpentine");
+  });
+
   it("renders semantic red input and blue output handles with accessible labels", async () => {
     render(<App />);
     await waitFor(() => {
@@ -263,7 +341,7 @@ describe("App", () => {
     expect(projectStore.getState().project?.name).toBe("Manual edit project");
   });
 
-  it("keeps multi-component selection read-only in the properties inspector", async () => {
+  it("offers atomic lane assignment for multi-component selection", async () => {
     render(<App />);
     await waitFor(() => {
       expect(screen.getByText("Untitled Project")).toBeInTheDocument();
@@ -291,7 +369,7 @@ describe("App", () => {
     });
 
     expect(screen.getByText("Multi-selection")).toBeInTheDocument();
-    expect(screen.getByText(/read-only in Phase 6/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Assign selected components to")).toBeInTheDocument();
   });
 
   it("saves locally when broadcast publication fails", async () => {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const CURRENT_SCHEMA_VERSION = "0.2.0" as const;
+export const CURRENT_SCHEMA_VERSION = "0.4.0" as const;
 
 export const SchemaVersionSchema = z.literal(CURRENT_SCHEMA_VERSION);
 

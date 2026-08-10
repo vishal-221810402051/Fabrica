@@ -156,6 +156,35 @@ export function validateProjectIntegrity(project: Project): IntegrityIssue[] {
     );
   });
 
+  project.lanes.forEach((lane, laneIndex) => {
+    lane.componentIds.forEach((componentId, componentIndex) => {
+      const component = components.get(componentId);
+      if (component && component.laneId !== lane.id) {
+        issues.push({
+          code: "lane-membership-index-mismatch",
+          message: "Lane componentIds must mirror component.laneId",
+          path: `lanes.${laneIndex}.componentIds.${componentIndex}`,
+          entityId: lane.id,
+        });
+      }
+    });
+  });
+
+  project.components.forEach((component, componentIndex) => {
+    if (!component.laneId) {
+      return;
+    }
+    const lane = lanes.get(component.laneId);
+    if (lane && !lane.componentIds.includes(component.id)) {
+      issues.push({
+        code: "component-lane-index-mismatch",
+        message: "Component laneId must be indexed by its Lane componentIds",
+        path: `components.${componentIndex}.laneId`,
+        entityId: component.id,
+      });
+    }
+  });
+
   project.ports.forEach((port, portIndex) => {
     requireReference(
       issues,

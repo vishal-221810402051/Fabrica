@@ -1,5 +1,13 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
+  compactSerpentineRouteDraft,
+  isSerpentinePitchFeasible,
+  minimumSerpentineBendRadius,
+  minimumSerpentinePitch,
+  recommendedSerpentineBendRadius,
+  recommendedSerpentinePitch,
+} from "geometry-core";
+import {
   DEFINITION_IDENTITY_EXTENSION,
   getComponentDefinition,
   getComponentParameterValues,
@@ -10,8 +18,8 @@ import {
 import type {
   Component,
   ComponentId,
-  Connection,
   ConnectionId,
+  LaneId,
   ManufacturingProcess,
   Layer,
   LengthQuantity,
@@ -20,17 +28,21 @@ import type {
   Port,
   ProcessId,
   Project,
+  RoutePattern,
 } from "project-model";
 import type { Dimension, ProvenanceSource, Unit } from "units";
 
 import {
   reassignComponentLayerLane,
+  reassignSelectedComponentsLane,
   renameComponent,
   updateComponentParameterValues,
   updateComponentPositionAndRotation,
 } from "../../editor/editorActions";
 import {
   updateChipProperties,
+  createLane,
+  deleteEmptyLane,
   updateLaneProperties,
   updateLayerProperties,
   updateManufacturingProcessProperties,
@@ -39,6 +51,12 @@ import {
   updateProjectName,
 } from "../../editor/propertyActions";
 import { updatePhysicalRouteProperties } from "../../editor/physicalRouteActions";
+import { inspectLane } from "../../editor/laneSelectors";
+import {
+  resolveConnectionRouteContext,
+  type ConnectionRouteContext,
+} from "../../editor/connectionRouteSelectors";
+import type { InspectorScope } from "../../editor/editor.types";
 import {
   compatibleUnits,
   formatDisplayNumber,
@@ -51,9 +69,6 @@ import {
 import { projectStore } from "../../state/projectStore";
 import { useProjectStore } from "../../state/projectStore.react";
 
-type InspectorScope =
-  "selection" | "project" | "chip" | "layer" | "lane" | "material" | "process";
-
 interface FieldError {
   field: string;
   message: string;
@@ -63,7 +78,8 @@ export function PropertiesPanel() {
   const project = useProjectStore((state) => state.project);
   const selectedComponentIds = useProjectStore((state) => state.selectedComponentIds);
   const selectedConnectionIds = useProjectStore((state) => state.selectedConnectionIds);
-  const [scope, setScope] = useState<InspectorScope>("selection");
+  const scope = useProjectStore((state) => state.inspectorScope);
+  const setScope = useProjectStore((state) => state.setInspectorScope);
   const [selectedLayerId, setSelectedLayerId] = useState<string>("");
   const [selectedLaneId, setSelectedLaneId] = useState<string>("");
   const [selectedMaterialId, setSelectedMaterialId] = useState<string>("");
@@ -122,15 +138,11 @@ export function PropertiesPanel() {
         </EntityPicker>
       ) : null}
       {scope === "lane" ? (
-        <EntityPicker
-          label="Lane"
-          value={laneId}
-          options={project.lanes.map((lane) => ({ id: lane.id, name: lane.name }))}
-          empty="No lanes in this project."
-          onChange={setSelectedLaneId}
-        >
-          {laneId ? <LaneEditor project={project} laneId={laneId} /> : null}
-        </EntityPicker>
+        <LaneScope
+          project={project}
+          laneId={laneId}
+          onSelectedLaneId={setSelectedLaneId}
+        />
       ) : null}
       {scope === "material" ? (
         <EntityPicker
@@ -168,6 +180,61 @@ export function PropertiesPanel() {
   );
 }
 
+function LaneScope(props: {
+  project: Project;
+  laneId: string;
+  onSelectedLaneId: (laneId: string) => void;
+}) {
+  const [errors, setErrors] = useState<FieldError[]>([]);
+  const laneOptions = props.project.lanes.map((lane) => ({
+    id: lane.id,
+    name: lane.name,
+  }));
+  return (
+    <>
+      <section className="property-group">
+        <h3>Lanes</h3>
+        {errors.length > 0 ? (
+          <div className="editor-feedback editor-feedback-error" role="status">
+            <strong>Update blocked</strong>
+            <p>{errors.map((error) => error.message).join(", ")}</p>
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={() =>
+            applyProjectUpdate(setErrors, "Add lane", () => {
+              let createdLaneId = "";
+              const currentProject = projectStore.getState().project ?? props.project;
+              const result = createLane(currentProject);
+              createdLaneId = result.lane.id;
+              props.onSelectedLaneId(createdLaneId);
+              return result.project;
+            })
+          }
+        >
+          + Add Lane
+        </button>
+      </section>
+      <EntityPicker
+        label="Lane"
+        value={props.laneId}
+        options={laneOptions}
+        empty="No lanes in this project."
+        onChange={props.onSelectedLaneId}
+      >
+        {props.laneId ? (
+          <LaneEditor
+            project={props.project}
+            laneId={props.laneId}
+            onDeleted={() => props.onSelectedLaneId("")}
+          />
+        ) : null}
+      </EntityPicker>
+    </>
+  );
+}
+
 function SelectionInspector(props: {
   project: Project;
   component: Component | undefined;
@@ -176,22 +243,30 @@ function SelectionInspector(props: {
 }) {
   if (props.selectedComponentIds.length > 1) {
     return (
+      <MultiComponentSelectionEditor
+        project={props.project}
+        selectedComponentIds={props.selectedComponentIds}
+      />
+    );
+  }
+  if (props.selectedConnectionIds.length > 1) {
+    return (
       <section className="property-group">
-        <h3>Multi-selection</h3>
+        <h3>Connection selection</h3>
         <p className="muted">
-          {props.selectedComponentIds.length} components selected. Multi-edit is
-          read-only in Phase 6.
+          {props.selectedConnectionIds.length} connections selected. Bulk route editing
+          is not available.
         </p>
       </section>
     );
   }
   if (props.selectedConnectionIds.length === 1 && !props.component) {
-    const connection = props.project.connections.find(
-      (item) => item.id === props.selectedConnectionIds[0],
+    return (
+      <ConnectionEditor
+        project={props.project}
+        connectionId={props.selectedConnectionIds[0]!}
+      />
     );
-    return connection ? (
-      <ConnectionEditor project={props.project} connection={connection} />
-    ) : null;
   }
   if (!props.component) {
     return (
@@ -203,56 +278,351 @@ function SelectionInspector(props: {
   return <ComponentEditor project={props.project} component={props.component} />;
 }
 
-function ConnectionEditor(props: { project: Project; connection: Connection }) {
-  const route = props.project.physicalRoutes.find(
-    (candidate) => candidate.connectionId === props.connection.id,
-  );
-  return (
-    <ConnectionRouteEditor
-      project={props.project}
-      connection={props.connection}
-      route={route}
-      key={route?.id ?? props.connection.id}
-    />
-  );
-}
-
-function ConnectionRouteEditor(props: {
+function MultiComponentSelectionEditor(props: {
   project: Project;
-  connection: Connection;
-  route: PhysicalRoute | undefined;
+  selectedComponentIds: string[];
 }) {
-  const [width, setWidth] = useState(() => optionalLengthDraft(props.route?.width));
-  const [depth, setDepth] = useState(() => optionalLengthDraft(props.route?.depth));
-  const [bendRadius, setBendRadius] = useState(() =>
-    optionalLengthDraft(props.route?.bendRadius),
-  );
+  const [laneId, setLaneId] = useState("");
   const [errors, setErrors] = useState<FieldError[]>([]);
   return (
     <FormSection
-      title="Connection route"
+      title="Multi-selection"
       errors={errors}
       onApply={() =>
-        applyProjectUpdate(setErrors, "Update route properties", () =>
-          updatePhysicalRouteProperties(
+        applyProjectUpdate(setErrors, "Assign selected components to lane", () =>
+          reassignSelectedComponentsLane(
             props.project,
-            props.connection.id as ConnectionId,
-            {
-              width: optionalQuantity(width, "Width"),
-              depth: optionalQuantity(depth, "Depth"),
-              bendRadius: optionalQuantity(bendRadius, "Bend radius"),
-            },
+            props.selectedComponentIds as ComponentId[],
+            laneId || null,
           ),
         )
       }
     >
-      <ReadOnly label="Connection ID" value={props.connection.id} />
+      <p className="muted">
+        {props.selectedComponentIds.length} components selected. Route properties remain
+        single-selection only.
+      </p>
+      <label>
+        <span className="label">Assign selected components to</span>
+        <select value={laneId} onChange={(event) => setLaneId(event.target.value)}>
+          <option value="">No lane</option>
+          {props.project.lanes.map((lane) => (
+            <option value={lane.id} key={lane.id}>
+              {lane.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    </FormSection>
+  );
+}
+
+function ConnectionEditor(props: { project: Project; connectionId: string }) {
+  const context = resolveConnectionRouteContext(props.project, props.connectionId);
+  if (!context.connection) {
+    return (
+      <section className="property-group">
+        <h3>Connection</h3>
+        <p className="muted">Selected connection no longer exists.</p>
+      </section>
+    );
+  }
+  return (
+    <PhysicalRouteProperties
+      project={props.project}
+      context={context}
+      key={physicalRouteDraftKey(context, props.connectionId)}
+    />
+  );
+}
+
+function PhysicalRouteProperties(props: {
+  project: Project;
+  context: ConnectionRouteContext;
+}) {
+  const route =
+    props.context.physicalRoute.status === "unique"
+      ? props.context.physicalRoute.route
+      : undefined;
+  const routePattern = route?.pattern ?? { kind: "straight" as const };
+  const initialDraft = physicalRouteToDraft(route);
+  const [width, setWidth] = useState(() => initialDraft.width);
+  const [depth, setDepth] = useState(() => initialDraft.depth);
+  const [bendRadius, setBendRadius] = useState(() => initialDraft.bendRadius);
+  const [patternKind, setPatternKind] = useState<RoutePattern["kind"]>(
+    initialDraft.patternKind,
+  );
+  const [turnCount, setTurnCount] = useState(initialDraft.turnCount);
+  const [pitch, setPitch] = useState(() => initialDraft.pitch);
+  const [axis, setAxis] = useState<"auto" | "horizontal" | "vertical">(
+    initialDraft.axis,
+  );
+  const [entranceLength, setEntranceLength] = useState(
+    () => initialDraft.entranceLength,
+  );
+  const [exitLength, setExitLength] = useState(() => initialDraft.exitLength);
+  const [sizingMode, setSizingMode] = useState<"explicit" | "target-length">(
+    initialDraft.sizingMode,
+  );
+  const [amplitude, setAmplitude] = useState(() => initialDraft.amplitude);
+  const [targetLength, setTargetLength] = useState(() => initialDraft.targetLength);
+  const [placementMode, setPlacementMode] = useState<"auto" | "manual">(
+    initialDraft.placementMode,
+  );
+  const [coreX, setCoreX] = useState(() => initialDraft.coreX);
+  const [coreY, setCoreY] = useState(() => initialDraft.coreY);
+  const [errors, setErrors] = useState<FieldError[]>([]);
+  const generated = props.context.geometry;
+  const editsDisabled = props.context.physicalRoute.status === "duplicate";
+  const widthQuantity = optionalQuantityOrNull(width);
+  const bendRadiusQuantity = optionalQuantityOrNull(bendRadius);
+  const geometricMinimumRadius =
+    widthQuantity && widthQuantity.value > 0
+      ? minimumSerpentineBendRadius(widthQuantity.value)
+      : null;
+  const geometricMinimumPitch =
+    bendRadiusQuantity && bendRadiusQuantity.value > 0
+      ? minimumSerpentinePitch(widthQuantity?.value ?? 0, bendRadiusQuantity.value)
+      : null;
+  const draftValidationErrors = validateRouteDraft({
+    patternKind,
+    pitch,
+    bendRadius,
+    width,
+  });
+  const formErrors = draftValidationErrors.length > 0 ? draftValidationErrors : errors;
+  const applyDisabled = editsDisabled || draftValidationErrors.length > 0;
+  function handlePatternKindChange(nextPatternKind: RoutePattern["kind"]) {
+    if (nextPatternKind === "serpentine" && patternKind !== "serpentine") {
+      const serpentineDraft = defaultSerpentineDraft(route);
+      setBendRadius(serpentineDraft.bendRadius);
+      setTurnCount(serpentineDraft.turnCount);
+      setPitch(serpentineDraft.pitch);
+      setAxis(serpentineDraft.axis);
+      setEntranceLength(serpentineDraft.entranceLength);
+      setExitLength(serpentineDraft.exitLength);
+      setSizingMode(serpentineDraft.sizingMode);
+      setAmplitude(serpentineDraft.amplitude);
+      setTargetLength(serpentineDraft.targetLength);
+      setPlacementMode(serpentineDraft.placementMode);
+      setCoreX(serpentineDraft.coreX);
+      setCoreY(serpentineDraft.coreY);
+    }
+    setPatternKind(nextPatternKind);
+    setErrors([]);
+  }
+  function handlePlacementModeChange(nextMode: "auto" | "manual") {
+    setPlacementMode(nextMode);
+    if (nextMode === "manual") {
+      const center = generated?.coreCenter;
+      setCoreX(lengthDraft(formatDisplayNumber(center?.x ?? 0)));
+      setCoreY(lengthDraft(formatDisplayNumber(center?.y ?? 0)));
+    }
+    setErrors([]);
+  }
+  function handleCenterCore() {
+    const center = generated?.coreCenter;
+    if (!center) {
+      setErrors([
+        {
+          field: "placement",
+          message: "Core center is not available until the current route is solvable.",
+        },
+      ]);
+      return;
+    }
+    setPlacementMode("manual");
+    setCoreX(lengthDraft(formatDisplayNumber(center.x)));
+    setCoreY(lengthDraft(formatDisplayNumber(center.y)));
+  }
+  function handleCompactToFit() {
+    try {
+      const candidateRoute = {
+        ...(route ?? {
+          id: "route_draft_compact",
+          connectionId: props.context.connection!.id,
+          layerId: props.context.sourceComponent!.layerId,
+          pattern: { kind: "straight" as const },
+          metadata: {},
+        }),
+        width: optionalQuantity(width, "Width") ?? undefined,
+        depth: optionalQuantity(depth, "Depth") ?? undefined,
+        bendRadius: optionalQuantity(bendRadius, "Bend radius") ?? undefined,
+        pattern: buildRoutePattern({
+          existingPattern: routePattern,
+          patternKind,
+          turnCount,
+          pitch,
+          axis,
+          entranceLength,
+          exitLength,
+          sizingMode,
+          amplitude,
+          targetLength,
+          placementMode,
+          coreX,
+          coreY,
+        }),
+      } as PhysicalRoute;
+      const compacted = compactSerpentineRouteDraft(props.project, candidateRoute);
+      if (compacted.status === "fit" && compacted.bendRadius && compacted.pitch) {
+        setBendRadius(lengthDraft(formatDisplayNumber(compacted.bendRadius)));
+        setPitch(lengthDraft(formatDisplayNumber(compacted.pitch)));
+        setErrors([]);
+        return;
+      }
+      setErrors([
+        {
+          field: "compact",
+          message:
+            compacted.message ??
+            "Configured number of turns cannot fit in available space.",
+        },
+      ]);
+    } catch (error) {
+      setErrors([
+        {
+          field: "compact",
+          message:
+            error instanceof Error ? error.message : "Compact fit could not run.",
+        },
+      ]);
+    }
+  }
+  function handleApply() {
+    const validationErrors = validateRouteDraft({
+      patternKind,
+      pitch,
+      bendRadius,
+      width,
+    });
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+    applyProjectUpdate(setErrors, "Update route properties", () =>
+      updatePhysicalRouteProperties(
+        props.project,
+        props.context.connection!.id as ConnectionId,
+        {
+          pattern: buildRoutePattern({
+            existingPattern: routePattern,
+            patternKind,
+            turnCount,
+            pitch,
+            axis,
+            entranceLength,
+            exitLength,
+            sizingMode,
+            amplitude,
+            targetLength,
+            placementMode,
+            coreX,
+            coreY,
+          }),
+          width: optionalQuantity(width, "Width"),
+          depth: optionalQuantity(depth, "Depth"),
+          bendRadius: optionalQuantity(bendRadius, "Bend radius"),
+        },
+      ),
+    );
+  }
+  return (
+    <FormSection
+      title="Connection"
+      errors={formErrors}
+      onApply={handleApply}
+      disabled={applyDisabled}
+    >
+      <ReadOnly
+        label="Connection ID"
+        value={props.context.connection?.id ?? "missing"}
+      />
+      <ReadOnly
+        label="Source"
+        value={`${props.context.sourceComponent?.name ?? "missing component"} / ${props.context.sourcePort?.name ?? "missing port"} (${props.context.sourcePort?.direction ?? "unknown"})`}
+      />
+      <ReadOnly
+        label="Target"
+        value={`${props.context.targetComponent?.name ?? "missing component"} / ${props.context.targetPort?.name ?? "missing port"} (${props.context.targetPort?.direction ?? "unknown"})`}
+      />
+      <ReadOnly label="Lane context" value={formatLaneContext(props.context)} />
       <ReadOnly
         label="Ports"
-        value={`${props.connection.sourcePortId} to ${props.connection.targetPortId}`}
+        value={`${props.context.connection?.sourcePortId ?? "missing"} to ${props.context.connection?.targetPortId ?? "missing"}`}
       />
-      <ReadOnly label="Route ID" value={props.route?.id ?? "created on apply"} />
-      <ReadOnly label="Route layer" value={props.route?.layerId ?? "endpoint layer"} />
+      <ReadOnly label="Route status" value={formatRouteResolution(props.context)} />
+      <ReadOnly label="Route ID" value={route?.id ?? "created on apply"} />
+      <ReadOnly label="Route layer" value={route?.layerId ?? "endpoint layer"} />
+      <ReadOnly label="Readiness" value={formatRouteReadiness(props.context)} />
+      {props.context.issues.length > 0 ? (
+        <p className="muted">Issues: {props.context.issues.join(", ")}</p>
+      ) : null}
+      <ReadOnly
+        label="Actual length"
+        value={
+          generated ? `${formatDisplayNumber(generated.actualLength)} mm` : "pending"
+        }
+      />
+      {generated ? (
+        <>
+          <ReadOnly
+            label="Entry tail"
+            value={`${formatDisplayNumber(generated.entryTailLength)} mm`}
+          />
+          <ReadOnly
+            label="Serpentine core"
+            value={`${formatDisplayNumber(generated.coreLength)} mm`}
+          />
+          <ReadOnly
+            label="Exit tail"
+            value={`${formatDisplayNumber(generated.exitTailLength)} mm`}
+          />
+        </>
+      ) : null}
+      {generated?.solvedAmplitude !== undefined ? (
+        <ReadOnly
+          label="Solved amplitude"
+          value={`${formatDisplayNumber(generated.solvedAmplitude)} mm`}
+        />
+      ) : null}
+      {generated?.targetDifference !== undefined ? (
+        <ReadOnly
+          label="Target difference"
+          value={`${formatDisplayNumber(generated.targetDifference)} mm`}
+        />
+      ) : null}
+      {generated?.envelope ? (
+        <ReadOnly
+          label="Envelope"
+          value={`${formatDisplayNumber(generated.envelope.minX)}, ${formatDisplayNumber(
+            generated.envelope.minY,
+          )} to ${formatDisplayNumber(generated.envelope.maxX)}, ${formatDisplayNumber(
+            generated.envelope.maxY,
+          )} mm`}
+        />
+      ) : null}
+      {generated && generated.issues.length > 0 ? (
+        <p className="muted">
+          Issues:{" "}
+          {generated.issues
+            .map((issue) => `${issue.code}: ${issue.message}`)
+            .join(", ")}
+        </p>
+      ) : null}
+      <label>
+        <span className="label">Pattern</span>
+        <select
+          value={patternKind}
+          onChange={(event) =>
+            handlePatternKindChange(event.target.value as RoutePattern["kind"])
+          }
+        >
+          <option value="straight">Straight</option>
+          <option value="manual">Manual</option>
+          <option value="serpentine">Serpentine</option>
+        </select>
+      </label>
       <QuantityField
         label="Width"
         draft={width}
@@ -271,12 +641,190 @@ function ConnectionRouteEditor(props: {
         dimension="length"
         onChange={setBendRadius}
       />
-      <p className="muted">
-        Route endpoints are derived from component ports. Intermediate waypoints are not
-        edited in Phase 8A.
-      </p>
+      {patternKind === "serpentine" ? (
+        <div className="derived-route-values" aria-label="Geometric limits">
+          <p className="muted">
+            Minimum radius:{" "}
+            {geometricMinimumRadius !== null
+              ? `> ${formatDisplayNumber(widthQuantity!.value / 2)} mm`
+              : "requires width"}
+          </p>
+          <p className="muted">
+            Minimum pitch:{" "}
+            {geometricMinimumPitch !== null
+              ? `${formatDisplayNumber(geometricMinimumPitch)} mm`
+              : "requires bend radius"}
+          </p>
+        </div>
+      ) : null}
+      {patternKind === "manual" ? (
+        <p className="muted">
+          Waypoints:{" "}
+          {routePattern.kind === "manual" ? routePattern.waypoints.length : 0}. Canvas
+          waypoint editing is not available yet.
+        </p>
+      ) : null}
+      {patternKind === "serpentine" ? (
+        <>
+          <TextField label="Turn count" value={turnCount} onChange={setTurnCount} />
+          {generated?.generatedTurnCount !== undefined ? (
+            <ReadOnly
+              label="Generated turns"
+              value={`${generated.generatedTurnCount}`}
+            />
+          ) : null}
+          <QuantityField
+            label="Pitch"
+            draft={pitch}
+            dimension="length"
+            onChange={setPitch}
+          />
+          <label>
+            <span className="label">Axis</span>
+            <select
+              value={axis}
+              onChange={(event) =>
+                setAxis(event.target.value as "auto" | "horizontal" | "vertical")
+              }
+            >
+              <option value="auto">Auto</option>
+              <option value="horizontal">Horizontal</option>
+              <option value="vertical">Vertical</option>
+            </select>
+          </label>
+          <QuantityField
+            label="Entrance length"
+            draft={entranceLength}
+            dimension="length"
+            onChange={setEntranceLength}
+          />
+          <QuantityField
+            label="Exit length"
+            draft={exitLength}
+            dimension="length"
+            onChange={setExitLength}
+          />
+          <label>
+            <span className="label">Sizing</span>
+            <select
+              value={sizingMode}
+              onChange={(event) =>
+                setSizingMode(event.target.value as "explicit" | "target-length")
+              }
+            >
+              <option value="explicit">Explicit amplitude</option>
+              <option value="target-length">Target length</option>
+            </select>
+          </label>
+          {sizingMode === "explicit" ? (
+            <QuantityField
+              label="Amplitude"
+              draft={amplitude}
+              dimension="length"
+              onChange={setAmplitude}
+            />
+          ) : (
+            <QuantityField
+              label="Target length"
+              draft={targetLength}
+              dimension="length"
+              onChange={setTargetLength}
+            />
+          )}
+          <label>
+            <span className="label">Placement</span>
+            <select
+              value={placementMode}
+              onChange={(event) =>
+                handlePlacementModeChange(event.target.value as "auto" | "manual")
+              }
+            >
+              <option value="auto">Auto</option>
+              <option value="manual">Manual</option>
+            </select>
+          </label>
+          {placementMode === "manual" ? (
+            <>
+              <QuantityField
+                label="Core X"
+                draft={coreX}
+                dimension="length"
+                onChange={setCoreX}
+              />
+              <QuantityField
+                label="Core Y"
+                draft={coreY}
+                dimension="length"
+                onChange={setCoreY}
+              />
+            </>
+          ) : null}
+          <div className="inspector-button-row">
+            <button type="button" onClick={handleCenterCore}>
+              Center core
+            </button>
+            <button type="button" onClick={handleCompactToFit}>
+              Compact to fit
+            </button>
+          </div>
+          {generated?.coreEnvelope ? (
+            <ReadOnly
+              label="Core envelope"
+              value={`${formatDisplayNumber(generated.coreEnvelope.minX)}, ${formatDisplayNumber(
+                generated.coreEnvelope.minY,
+              )} to ${formatDisplayNumber(generated.coreEnvelope.maxX)}, ${formatDisplayNumber(
+                generated.coreEnvelope.maxY,
+              )} mm`}
+            />
+          ) : null}
+        </>
+      ) : null}
     </FormSection>
   );
+}
+
+function formatLaneContext(context: ConnectionRouteContext): string {
+  if (context.laneContext.status === "same-lane") {
+    return context.laneContext.lane.name;
+  }
+  if (context.laneContext.status === "cross-lane") {
+    return `Cross-lane; Source: ${context.sourceLane?.name ?? "Unassigned"}; Target: ${context.targetLane?.name ?? "Unassigned"}`;
+  }
+  return "Unassigned";
+}
+
+function formatRouteResolution(context: ConnectionRouteContext): string {
+  if (context.physicalRoute.status === "missing") {
+    return "Missing physical route";
+  }
+  if (context.physicalRoute.status === "duplicate") {
+    return `${context.physicalRoute.routes.length} physical routes found; editing disabled`;
+  }
+  return "Unique physical route";
+}
+
+function formatRouteReadiness(context: ConnectionRouteContext): string {
+  if (context.physicalRoute.status === "duplicate") {
+    return "INVALID - duplicate route records";
+  }
+  if (context.physicalRoute.status === "missing") {
+    return "INCOMPLETE - Missing physical route";
+  }
+  if (context.issues.length > 0) {
+    return `INVALID - ${context.issues.join(", ")}`;
+  }
+  const route = context.physicalRoute.route;
+  const missing = [
+    route.width ? "" : "Missing width",
+    route.depth ? "" : "Missing depth",
+  ].filter(Boolean);
+  if (context.geometry && context.geometry.issues.length > 0) {
+    return `INVALID - ${context.geometry.issues.map((issue) => issue.code).join(", ")}`;
+  }
+  if (missing.length > 0) {
+    return `INCOMPLETE - ${missing.join(", ")}`;
+  }
+  return context.geometry?.physicalReady ? "READY" : "INCOMPLETE";
 }
 
 function ProjectEditor(props: { project: Project }) {
@@ -407,27 +955,118 @@ function LayerEditorInner(props: { project: Project; layer: Layer }) {
   );
 }
 
-function LaneEditor(props: { project: Project; laneId: string }) {
+function LaneEditor(props: {
+  project: Project;
+  laneId: string;
+  onDeleted: () => void;
+}) {
   const lane = props.project.lanes.find((item) => item.id === props.laneId);
   const [name, setName] = useState(lane?.name ?? "");
+  const [selectedRouteId, setSelectedRouteId] = useState("");
   const [errors, setErrors] = useState<FieldError[]>([]);
   if (!lane) {
     return null;
   }
+  const summary = inspectLane(props.project, lane.id);
+  const selectedRoute =
+    summary.routes.find((route) => route.route.id === selectedRouteId) ??
+    summary.routes[0];
+  const selectedConnection = selectedRoute
+    ? props.project.connections.find(
+        (connection) => connection.id === selectedRoute.route.connectionId,
+      )
+    : undefined;
   return (
-    <FormSection
-      title="Lane"
-      errors={errors}
-      onApply={() =>
-        applyProjectUpdate(setErrors, "Update lane", () =>
-          updateLaneProperties(props.project, lane.id, { name }),
-        )
-      }
-    >
-      <TextField label="Name" value={name} onChange={setName} />
-      <ReadOnly label="Lane ID" value={lane.id} />
-      <ReadOnly label="Components" value={String(lane.componentIds.length)} />
-    </FormSection>
+    <>
+      <FormSection
+        title="Lane"
+        errors={errors}
+        onApply={() =>
+          applyProjectUpdate(setErrors, "Update lane", () =>
+            updateLaneProperties(props.project, lane.id, { name }),
+          )
+        }
+      >
+        <TextField label="Name" value={name} onChange={setName} />
+        <ReadOnly label="Lane ID" value={lane.id} />
+        <ReadOnly label="Components" value={String(summary.components.length)} />
+        <ReadOnly label="Chambers" value={String(summary.chambers.length)} />
+        <ReadOnly label="Routes" value={String(summary.routes.length)} />
+        <ReadOnly
+          label="Ready routes"
+          value={`${summary.readyRouteCount}/${summary.routes.length}`}
+        />
+        <ReadOnly
+          label="Total actual channel length"
+          value={`${formatDisplayNumber(summary.totalActualLength)} mm`}
+        />
+        {summary.crossLaneRoutes.length > 0 ? (
+          <p className="muted">
+            {summary.crossLaneRoutes.length} cross-lane or unassigned routes touch this
+            lane.
+          </p>
+        ) : null}
+        <button
+          type="button"
+          onClick={() =>
+            applyProjectUpdate(setErrors, "Delete lane", () => {
+              const next = deleteEmptyLane(props.project, lane.id as LaneId);
+              props.onDeleted();
+              return next;
+            })
+          }
+        >
+          Delete Empty Lane
+        </button>
+      </FormSection>
+      <section className="property-group">
+        <h3>Lane routes</h3>
+        {summary.routes.length === 0 ? <p className="muted">No lane routes.</p> : null}
+        {summary.routes.map((route) => (
+          <button
+            type="button"
+            key={route.route.id}
+            className={selectedRoute?.route.id === route.route.id ? "active" : ""}
+            onClick={() => {
+              setSelectedRouteId(route.route.id);
+              projectStore
+                .getState()
+                .setSelectedConnections([route.route.connectionId]);
+            }}
+          >
+            {route.sourceComponent.name} to {route.targetComponent.name} ·{" "}
+            {formatDisplayNumber(route.actualLength)} mm
+          </button>
+        ))}
+      </section>
+      <section className="property-group">
+        <h3>Lane chambers</h3>
+        {summary.chambers.length === 0 ? (
+          <p className="muted">No lane chambers.</p>
+        ) : null}
+        {summary.chambers.map((component) => (
+          <button
+            type="button"
+            key={component.id}
+            onClick={() =>
+              projectStore.getState().setSelectedComponents([component.id])
+            }
+          >
+            {component.name}
+          </button>
+        ))}
+      </section>
+      {selectedRoute && selectedConnection ? (
+        <PhysicalRouteProperties
+          project={props.project}
+          context={resolveConnectionRouteContext(props.project, selectedConnection.id)}
+          key={physicalRouteDraftKey(
+            resolveConnectionRouteContext(props.project, selectedConnection.id),
+            selectedConnection.id,
+          )}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -923,6 +1562,7 @@ function FormSection(props: {
   errors: FieldError[];
   onApply: () => void;
   reset?: () => void;
+  disabled?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -935,7 +1575,7 @@ function FormSection(props: {
           <p>{props.errors.map((error) => error.message).join(", ")}</p>
         </div>
       ) : null}
-      <button type="button" onClick={props.onApply}>
+      <button type="button" onClick={props.onApply} disabled={props.disabled}>
         Apply
       </button>
       {props.reset ? (
@@ -1084,6 +1724,207 @@ function applyProjectUpdate(
   }
 }
 
+interface PhysicalRouteDraft {
+  width: QuantityDraft;
+  depth: QuantityDraft;
+  bendRadius: QuantityDraft;
+  patternKind: RoutePattern["kind"];
+  turnCount: string;
+  pitch: QuantityDraft;
+  axis: "auto" | "horizontal" | "vertical";
+  entranceLength: QuantityDraft;
+  exitLength: QuantityDraft;
+  sizingMode: "explicit" | "target-length";
+  amplitude: QuantityDraft;
+  targetLength: QuantityDraft;
+  placementMode: "auto" | "manual";
+  coreX: QuantityDraft;
+  coreY: QuantityDraft;
+}
+
+const DEFAULT_SERPENTINE_TURN_COUNT = "4";
+const DEFAULT_SERPENTINE_AMPLITUDE_MM = "8";
+const DEFAULT_SERPENTINE_TARGET_LENGTH_MM = "20";
+
+function physicalRouteDraftKey(
+  context: ConnectionRouteContext,
+  fallbackConnectionId: string,
+): string {
+  if (context.physicalRoute.status !== "unique") {
+    return `connection:${fallbackConnectionId}:${context.physicalRoute.status}`;
+  }
+  const route = context.physicalRoute.route;
+  return JSON.stringify({
+    id: route.id,
+    connectionId: route.connectionId,
+    layerId: route.layerId,
+    pattern: route.pattern,
+    width: route.width,
+    depth: route.depth,
+    bendRadius: route.bendRadius,
+  });
+}
+
+function physicalRouteToDraft(route: PhysicalRoute | undefined): PhysicalRouteDraft {
+  const routePattern = route?.pattern ?? { kind: "straight" as const };
+  const defaultSerpentine = defaultSerpentineDraft(route);
+  return {
+    width: optionalLengthDraft(route?.width),
+    depth: optionalLengthDraft(route?.depth),
+    bendRadius: optionalLengthDraft(route?.bendRadius),
+    patternKind: routePattern.kind,
+    turnCount:
+      routePattern.kind === "serpentine"
+        ? String(routePattern.turnCount)
+        : defaultSerpentine.turnCount,
+    pitch:
+      routePattern.kind === "serpentine"
+        ? quantityDraftFromCanonical(routePattern.pitch, "mm", "length")
+        : defaultSerpentine.pitch,
+    axis:
+      routePattern.kind === "serpentine" ? routePattern.axis : defaultSerpentine.axis,
+    entranceLength:
+      routePattern.kind === "serpentine"
+        ? optionalLengthDraft(routePattern.entranceLength)
+        : defaultSerpentine.entranceLength,
+    exitLength:
+      routePattern.kind === "serpentine"
+        ? optionalLengthDraft(routePattern.exitLength)
+        : defaultSerpentine.exitLength,
+    sizingMode:
+      routePattern.kind === "serpentine"
+        ? routePattern.sizing.mode
+        : defaultSerpentine.sizingMode,
+    amplitude:
+      routePattern.kind === "serpentine" && routePattern.sizing.mode === "explicit"
+        ? quantityDraftFromCanonical(routePattern.sizing.amplitude, "mm", "length")
+        : defaultSerpentine.amplitude,
+    targetLength:
+      routePattern.kind === "serpentine" && routePattern.sizing.mode === "target-length"
+        ? quantityDraftFromCanonical(routePattern.sizing.targetLength, "mm", "length")
+        : defaultSerpentine.targetLength,
+    placementMode:
+      routePattern.kind === "serpentine"
+        ? routePattern.placement.mode
+        : defaultSerpentine.placementMode,
+    coreX:
+      routePattern.kind === "serpentine" && routePattern.placement.mode === "manual"
+        ? quantityDraftFromCanonical(
+            routePattern.placement.coreCenter.x,
+            "mm",
+            "length",
+          )
+        : defaultSerpentine.coreX,
+    coreY:
+      routePattern.kind === "serpentine" && routePattern.placement.mode === "manual"
+        ? quantityDraftFromCanonical(
+            routePattern.placement.coreCenter.y,
+            "mm",
+            "length",
+          )
+        : defaultSerpentine.coreY,
+  };
+}
+
+function defaultSerpentineDraft(route: PhysicalRoute | undefined): PhysicalRouteDraft {
+  const widthMm =
+    route?.width && Number.isFinite(route.width.value) && route.width.value > 0
+      ? route.width.value
+      : undefined;
+  const bendRadiusMm =
+    route?.bendRadius &&
+    Number.isFinite(route.bendRadius.value) &&
+    route.bendRadius.value > 0
+      ? route.bendRadius.value
+      : recommendedSerpentineBendRadius(widthMm);
+  const pitchMm = recommendedSerpentinePitch(widthMm, bendRadiusMm);
+  return {
+    width: optionalLengthDraft(route?.width),
+    depth: optionalLengthDraft(route?.depth),
+    bendRadius: route?.bendRadius
+      ? quantityDraftFromCanonical(route.bendRadius, "mm", "length")
+      : lengthDraft(formatDisplayNumber(bendRadiusMm)),
+    patternKind: "serpentine",
+    turnCount: DEFAULT_SERPENTINE_TURN_COUNT,
+    pitch: lengthDraft(formatDisplayNumber(pitchMm)),
+    axis: "auto",
+    entranceLength: lengthDraft(""),
+    exitLength: lengthDraft(""),
+    sizingMode: "explicit",
+    amplitude: lengthDraft(DEFAULT_SERPENTINE_AMPLITUDE_MM),
+    targetLength: lengthDraft(DEFAULT_SERPENTINE_TARGET_LENGTH_MM),
+    placementMode: "auto",
+    coreX: lengthDraft(""),
+    coreY: lengthDraft(""),
+  };
+}
+
+function validateRouteDraft(input: {
+  patternKind: RoutePattern["kind"];
+  pitch: QuantityDraft;
+  bendRadius: QuantityDraft;
+  width: QuantityDraft;
+}): FieldError[] {
+  if (input.patternKind !== "serpentine") {
+    return [];
+  }
+  const errors: FieldError[] = [];
+  let pitch: LengthQuantity | null = null;
+  let bendRadius: LengthQuantity | null = null;
+  let width: LengthQuantity | null = null;
+  try {
+    pitch = requiredLengthQuantity(input.pitch, "Pitch");
+  } catch (error) {
+    errors.push({
+      field: "pitch",
+      message: error instanceof Error ? error.message : "Pitch is invalid",
+    });
+  }
+  try {
+    bendRadius = optionalQuantity(input.bendRadius, "Bend radius");
+  } catch (error) {
+    errors.push({
+      field: "bendRadius",
+      message: error instanceof Error ? error.message : "Bend radius is invalid",
+    });
+  }
+  try {
+    width = optionalQuantity(input.width, "Width");
+  } catch (error) {
+    errors.push({
+      field: "width",
+      message: error instanceof Error ? error.message : "Width is invalid",
+    });
+  }
+  if (
+    width &&
+    bendRadius &&
+    bendRadius.value < minimumSerpentineBendRadius(width.value)
+  ) {
+    errors.push({
+      field: "bendRadius",
+      message: `Minimum bend radius for a ${formatDisplayNumber(
+        width.value,
+      )} mm route width is greater than ${formatDisplayNumber(width.value / 2)} mm.`,
+    });
+  }
+  if (
+    pitch &&
+    bendRadius &&
+    !isSerpentinePitchFeasible(pitch.value, bendRadius.value, width?.value)
+  ) {
+    errors.push({
+      field: "pitch",
+      message: `Minimum pitch for a ${formatDisplayNumber(
+        bendRadius.value,
+      )} mm bend radius is ${formatDisplayNumber(
+        minimumSerpentinePitch(width?.value ?? 0, bendRadius.value),
+      )} mm.`,
+    });
+  }
+  return errors;
+}
+
 function requiredQuantity(draft: QuantityDraft, dimension: Dimension, label: string) {
   try {
     return parseQuantityDraft(draft, dimension, {
@@ -1109,10 +1950,87 @@ function optionalQuantity(draft: QuantityDraft, label: string): LengthQuantity |
   }
 }
 
+function buildRoutePattern(input: {
+  existingPattern: RoutePattern;
+  patternKind: RoutePattern["kind"];
+  turnCount: string;
+  pitch: QuantityDraft;
+  axis: "auto" | "horizontal" | "vertical";
+  entranceLength: QuantityDraft;
+  exitLength: QuantityDraft;
+  sizingMode: "explicit" | "target-length";
+  amplitude: QuantityDraft;
+  targetLength: QuantityDraft;
+  placementMode: "auto" | "manual";
+  coreX: QuantityDraft;
+  coreY: QuantityDraft;
+}): RoutePattern {
+  if (input.patternKind === "straight") {
+    return { kind: "straight" };
+  }
+  if (input.patternKind === "manual") {
+    return {
+      kind: "manual",
+      waypoints:
+        input.existingPattern.kind === "manual" ? input.existingPattern.waypoints : [],
+    };
+  }
+  return {
+    kind: "serpentine",
+    turnCount: parseInteger(input.turnCount, "Turn count"),
+    pitch: requiredLengthQuantity(input.pitch, "Pitch"),
+    axis: input.axis,
+    ...(optionalQuantity(input.entranceLength, "Entrance length")
+      ? {
+          entranceLength: optionalQuantity(input.entranceLength, "Entrance length")!,
+        }
+      : {}),
+    ...(optionalQuantity(input.exitLength, "Exit length")
+      ? { exitLength: optionalQuantity(input.exitLength, "Exit length")! }
+      : {}),
+    sizing:
+      input.sizingMode === "explicit"
+        ? {
+            mode: "explicit",
+            amplitude: requiredLengthQuantity(input.amplitude, "Amplitude"),
+          }
+        : {
+            mode: "target-length",
+            targetLength: requiredLengthQuantity(input.targetLength, "Target length"),
+          },
+    placement:
+      input.placementMode === "manual"
+        ? {
+            mode: "manual",
+            coreCenter: {
+              x: requiredLengthQuantity(input.coreX, "Core X"),
+              y: requiredLengthQuantity(input.coreY, "Core Y"),
+            },
+          }
+        : { mode: "auto" },
+  };
+}
+
 function optionalLengthDraft(quantity: PhysicalRoute["width"]): QuantityDraft {
   return quantity
     ? quantityDraftFromCanonical(quantity, "mm", "length")
-    : { text: "", displayUnit: "mm" };
+    : lengthDraft("");
+}
+
+function optionalQuantityOrNull(draft: QuantityDraft): LengthQuantity | null {
+  try {
+    return optionalQuantity(draft, "");
+  } catch {
+    return null;
+  }
+}
+
+function lengthDraft(text: string): QuantityDraft {
+  return { text, displayUnit: "mm" };
+}
+
+function requiredLengthQuantity(draft: QuantityDraft, label: string): LengthQuantity {
+  return requiredQuantity(draft, "length", label) as LengthQuantity;
 }
 
 function parseInteger(text: string, label: string): number {

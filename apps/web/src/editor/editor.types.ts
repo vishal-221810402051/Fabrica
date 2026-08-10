@@ -30,6 +30,9 @@ export interface EditorStructuredError {
   details?: string[];
 }
 
+export type InspectorScope =
+  "selection" | "project" | "chip" | "layer" | "lane" | "material" | "process";
+
 export interface ConnectionPreviewState {
   sourcePortId?: string;
   targetPortId?: string;
@@ -40,6 +43,7 @@ export interface ConnectionPreviewState {
 export interface EditorTransientState {
   selectedComponentIds: ComponentId[];
   selectedConnectionIds: ConnectionId[];
+  inspectorScope: InspectorScope;
   activeLayerId: LayerId | null;
   activeLaneId: string | null;
   paletteCategory: ComponentCategory | "all";
@@ -87,6 +91,7 @@ export interface EditorEdgeData extends Record<string, unknown> {
   connectionId: ConnectionId;
   selected: boolean;
   routePoints: Point[];
+  routePath: string;
   routeWidthPx: number;
   physicalReady: boolean;
 }

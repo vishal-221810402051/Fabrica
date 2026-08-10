@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Component, lazy, Suspense, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 import {
   deleteSelection,
@@ -95,58 +96,90 @@ export function EditorShell() {
         </div>
         <LayerLaneControls />
       </div>
-      <div className="editor-grid-layout">
-        <ComponentPalette />
-        <section className="editor-workspace" aria-label="Editor canvas and status">
-          <div className="workspace-mode-tabs" aria-label="Workspace mode">
-            <button
-              type="button"
-              className={workspaceMode === "2d" ? "active" : ""}
-              onClick={() => setWorkspaceMode("2d")}
-            >
-              2D Design
-            </button>
-            <button
-              type="button"
-              className={workspaceMode === "3d" ? "active" : ""}
-              onClick={() => setWorkspaceMode("3d")}
-            >
-              3D Preview
-            </button>
-          </div>
-          <EditorToolbar
-            onFit={() => fitRef.current()}
-            onReset={() => resetRef.current()}
-            onDuplicate={duplicateCurrentSelection}
-            onDelete={deleteCurrentSelection}
-          />
-          <ConnectionFeedback />
-          {workspaceMode === "2d" ? (
-            <EditorCanvas
-              onFitReady={(fit) => {
-                fitRef.current = fit;
-              }}
-              onResetReady={(reset) => {
-                resetRef.current = reset;
-              }}
+      <EditorErrorBoundary>
+        <div className="editor-grid-layout">
+          <ComponentPalette />
+          <section className="editor-workspace" aria-label="Editor canvas and status">
+            <div className="workspace-mode-tabs" aria-label="Workspace mode">
+              <button
+                type="button"
+                className={workspaceMode === "2d" ? "active" : ""}
+                onClick={() => setWorkspaceMode("2d")}
+              >
+                2D Design
+              </button>
+              <button
+                type="button"
+                className={workspaceMode === "3d" ? "active" : ""}
+                onClick={() => setWorkspaceMode("3d")}
+              >
+                3D Preview
+              </button>
+            </div>
+            <EditorToolbar
+              onFit={() => fitRef.current()}
+              onReset={() => resetRef.current()}
+              onDuplicate={duplicateCurrentSelection}
+              onDelete={deleteCurrentSelection}
             />
-          ) : (
-            <Suspense
-              fallback={
-                <div className="editor-canvas-empty">Loading 3D preview...</div>
-              }
-            >
-              <Viewer3DWorkspace />
-            </Suspense>
-          )}
-          <p className="muted">
-            {project?.components.length ?? 0} components,{" "}
-            {project?.connections.length ?? 0} connections. Selected:{" "}
-            {selectedComponentIds.length + selectedConnectionIds.length}
-          </p>
-        </section>
-        <PropertiesPanel />
-      </div>
+            <ConnectionFeedback />
+            {workspaceMode === "2d" ? (
+              <EditorCanvas
+                onFitReady={(fit) => {
+                  fitRef.current = fit;
+                }}
+                onResetReady={(reset) => {
+                  resetRef.current = reset;
+                }}
+              />
+            ) : (
+              <Suspense
+                fallback={
+                  <div className="editor-canvas-empty">Loading 3D preview...</div>
+                }
+              >
+                <Viewer3DWorkspace />
+              </Suspense>
+            )}
+            <p className="muted">
+              {project?.components.length ?? 0} components,{" "}
+              {project?.connections.length ?? 0} connections. Selected:{" "}
+              {selectedComponentIds.length + selectedConnectionIds.length}
+            </p>
+          </section>
+          <PropertiesPanel />
+        </div>
+      </EditorErrorBoundary>
     </section>
   );
+}
+
+class EditorErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error("Editor render failed", error);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <section className="editor-error-boundary" role="alert">
+          <h2>Editor view could not render</h2>
+          <p>
+            The project data is still preserved. Try undoing the last editor action or
+            reloading the project.
+          </p>
+        </section>
+      );
+    }
+    return this.props.children;
+  }
 }

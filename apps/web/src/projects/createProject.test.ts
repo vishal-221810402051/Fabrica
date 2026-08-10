@@ -12,7 +12,7 @@ describe("project creation", () => {
     });
 
     expect(projectModel.parseProject(project)).toEqual(project);
-    expect(project.schemaVersion).toBe("0.2.0");
+    expect(project.schemaVersion).toBe("0.4.0");
     expect(project.components).toHaveLength(0);
     expect(project.physicalRoutes).toEqual([]);
   });

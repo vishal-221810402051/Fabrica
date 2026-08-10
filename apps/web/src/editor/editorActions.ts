@@ -165,7 +165,7 @@ export function createProjectConnection(
     id: createStableId("route"),
     connectionId: connection.id,
     layerId: sharedRouteLayer(project, sourcePortId, targetPortId),
-    waypoints: [],
+    pattern: { kind: "straight" as const },
     metadata: {},
   };
   assertNoIdCollisions(project, [connection.id, physicalRoute.id]);
@@ -443,7 +443,7 @@ export function reassignComponentLayerLane(
     const compatibility = checkPortCompatibility({
       sourcePortId: connection.sourcePortId,
       targetPortId: connection.targetPortId,
-      context: candidateProject,
+      context: withoutConnection(candidateProject, connection.id),
     });
     if (!compatibility.compatible) {
       throw editorError(
@@ -453,6 +453,111 @@ export function reassignComponentLayerLane(
     }
   }
   return candidateProject;
+}
+
+export function reassignSelectedComponentsLane(
+  project: Project,
+  componentIds: readonly ComponentId[],
+  laneId: string | null,
+  now = new Date().toISOString(),
+): Project {
+  const selectedIds = new Set(componentIds);
+  if (selectedIds.size === 0) {
+    return project;
+  }
+  const resolvedLaneId = resolveLane(project, laneId);
+  const componentsById = new Map(
+    project.components.map((component) => [component.id, component]),
+  );
+  for (const componentId of selectedIds) {
+    const component = componentsById.get(componentId);
+    if (!component) {
+      throw editorError("EDITOR_PROJECT_INVALID", `Unknown component ${componentId}`);
+    }
+    const definition = getComponentDefinition(
+      readDefinitionIdentity(component).definitionKey,
+    );
+    if (definition.lanePolicy === "required" && !resolvedLaneId) {
+      throw editorError(
+        "EDITOR_REQUIRED_LANE_MISSING",
+        "This component requires a lane",
+      );
+    }
+    if (definition.lanePolicy === "forbidden" && resolvedLaneId) {
+      throw editorError("EDITOR_INVALID_LANE", "This component cannot use a lane");
+    }
+  }
+  if (
+    project.components.every(
+      (component) =>
+        !selectedIds.has(component.id) || (component.laneId ?? null) === resolvedLaneId,
+    )
+  ) {
+    return project;
+  }
+  const candidateProject = parseProject(
+    touchProject(
+      {
+        ...project,
+        components: project.components.map((component) =>
+          selectedIds.has(component.id)
+            ? {
+                ...component,
+                ...(resolvedLaneId
+                  ? { laneId: resolvedLaneId }
+                  : { laneId: undefined }),
+              }
+            : component,
+        ),
+        lanes: project.lanes.map((lane) => {
+          const preserved = lane.componentIds.filter((id) => !selectedIds.has(id));
+          return {
+            ...lane,
+            componentIds:
+              lane.id === resolvedLaneId
+                ? Array.from(new Set([...preserved, ...selectedIds]))
+                : preserved,
+          };
+        }),
+      },
+      now,
+    ),
+  );
+  const affectedConnections = candidateProject.connections.filter((connection) => {
+    const source = candidateProject.ports.find(
+      (port) => port.id === connection.sourcePortId,
+    );
+    const target = candidateProject.ports.find(
+      (port) => port.id === connection.targetPortId,
+    );
+    return (
+      Boolean(source && selectedIds.has(source.componentId)) ||
+      Boolean(target && selectedIds.has(target.componentId))
+    );
+  });
+  for (const connection of affectedConnections) {
+    const compatibility = checkPortCompatibility({
+      sourcePortId: connection.sourcePortId,
+      targetPortId: connection.targetPortId,
+      context: withoutConnection(candidateProject, connection.id),
+    });
+    if (!compatibility.compatible) {
+      throw editorError(
+        "EDITOR_REASSIGNMENT_INCOMPATIBLE",
+        "Selected components would make existing connections incompatible",
+      );
+    }
+  }
+  return candidateProject;
+}
+
+function withoutConnection(project: Project, connectionId: ConnectionId): Project {
+  return {
+    ...project,
+    connections: project.connections.filter(
+      (connection) => connection.id !== connectionId,
+    ),
+  };
 }
 
 function updateComponent(

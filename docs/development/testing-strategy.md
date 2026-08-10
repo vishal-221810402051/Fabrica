@@ -120,6 +120,43 @@ jsdom tests must not claim WebGL rendering correctness. Actual WebGL render,
 orbit/pan/zoom, camera presets, picking feel, transparency, visual geometry,
 and layer toggles require manual browser smoke validation.
 
+## Phase 8C-A Focus
+
+Project-model tests must cover schema `0.4.0`, route pattern validation,
+`0.2.0` to `0.3.0` migration, empty-waypoint routes becoming straight routes,
+waypoint routes becoming manual routes, `0.3.0` to `0.4.0` serpentine auto
+placement migration, and lane membership consistency between canonical
+`component.laneId` and the synchronized lane index.
+
+`geometry-core` tests must cover straight route primitives, manual route
+waypoints, tangent circular bend arcs, impossible bend rejection, serpentine
+turn count, pitch, axis handling, explicit amplitude, target-length amplitude
+solving, actual length derivation, physical envelopes, depth validation,
+outside-chip rejection, self-overlap rejection, deterministic 2D/3D primitive
+agreement, compact serpentine geometric minima, complete-turn guarantees,
+finite adaptive core-placement search, manual core-center placement, oriented
+tail topology escalation, exact-radius tail filleting, strict serpentine
+parameter authority, movement recovery without route mutation, draft-only
+compact fitting, and merger/splitter/reaction fixtures that approximate real
+editor layouts.
+
+Web tests must cover lane route discovery, cross-lane exclusion, chamber
+discovery, selected route editing, derived aggregate lane length, undo/redo,
+IndexedDB reload, import/export, and that generated route geometry is not
+serialized into the Project.
+
+Focused Phase 8C-A web tests must cover compact serpentine draft defaults,
+inline geometric-limit feedback, manual placement draft persistence, draft-only
+Compact to fit behavior, route wire selection regression, and that core overlay
+state is UI-only.
+
+Focused Phase 8B connection-inspector tests must cover `connectionId` selection
+identity, selected edge projection state, hit-target width independent of
+engineering route width, source/target inspector context, missing/unique/duplicate
+route resolution, route readiness, no-op route applies, selected-connection
+delete/undo behavior, 2D/3D selection consistency, and atomic multi-component
+lane assignment for connected components.
+
 ## Fixture Strategy
 
 Fixtures should be small, deterministic, versioned, and intentionally reviewed. They should cover canonical project-model examples, units, calculations, validation findings, layout constraints, CAD inputs, STEP/STL export expectations, and migration paths.

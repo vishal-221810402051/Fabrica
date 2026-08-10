@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from typing import Protocol
 
 from fabrica_api.project_model.errors import IntegrityIssue
-from fabrica_api.project_model.models import Project
+from fabrica_api.project_model.models import Component, Lane, Project
 
 
 class Identified(Protocol):
@@ -76,8 +76,10 @@ def validate_project_integrity(project: Project) -> list[IntegrityIssue]:
         track(result.id, f"validationResults.{index}.id")
 
     layers = _index_by_id(project.layers)
-    lanes = _index_by_id(project.lanes)
-    components = _index_by_id(project.components)
+    lanes: dict[str, Lane] = {lane.id: lane for lane in project.lanes}
+    components: dict[str, Component] = {
+        component.id: component for component in project.components
+    }
     ports = _index_by_id(project.ports)
     connections = _index_by_id(project.connections)
     fluids = _index_by_id(project.fluids)
@@ -155,6 +157,33 @@ def validate_project_integrity(project: Project) -> list[IntegrityIssue]:
                 "missing-component-port-reference",
                 f"components.{component_index}.portIds.{port_index}",
                 component.id,
+            )
+
+    for lane_index, lane in enumerate(project.lanes):
+        for component_index, component_id in enumerate(lane.componentIds):
+            component = components.get(component_id)
+            if component is not None and component.laneId != lane.id:
+                issues.append(
+                    IntegrityIssue(
+                        code="lane-membership-index-mismatch",
+                        message="Lane componentIds must mirror component.laneId",
+                        path=f"lanes.{lane_index}.componentIds.{component_index}",
+                        entity_id=lane.id,
+                    )
+                )
+
+    for component_index, component in enumerate(project.components):
+        if component.laneId is None:
+            continue
+        lane = lanes.get(component.laneId)
+        if lane is not None and component.id not in lane.componentIds:
+            issues.append(
+                IntegrityIssue(
+                    code="component-lane-index-mismatch",
+                    message="Component laneId must be indexed by its Lane componentIds",
+                    path=f"components.{component_index}.laneId",
+                    entity_id=component.id,
+                )
             )
 
     for port_index, port in enumerate(project.ports):

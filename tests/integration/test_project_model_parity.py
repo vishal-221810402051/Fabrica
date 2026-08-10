@@ -25,7 +25,7 @@ SCHEMA_PATH = (
     / "packages"
     / "project-model"
     / "schema"
-    / "project.v0.2.0.schema.json"
+    / "project.v0.4.0.schema.json"
 )
 
 VALID_FIXTURES = [
@@ -71,7 +71,7 @@ def test_valid_fixtures_match_json_schema_and_python_model(
     serialized = serialize_project(parse_project(payload))
     schema_validator.validate(serialized)
 
-    assert serialized["schemaVersion"] == "0.2.0"
+    assert serialized["schemaVersion"] == "0.4.0"
 
 
 @pytest.mark.parametrize("fixture_name", SCHEMA_INVALID_FIXTURES)

@@ -12,10 +12,17 @@ import {
   type OnSelectionChangeParams,
   type NodeProps,
 } from "@xyflow/react";
-import { MAJOR_GRID_MM, displayToMm, mmToDisplay } from "geometry-core";
+import {
+  MAJOR_GRID_MM,
+  PHYSICAL_SNAP_MM,
+  deriveRouteGeometry,
+  displayToMm,
+  mmToDisplay,
+} from "geometry-core";
 import { checkPortCompatibility } from "microfluidic-components";
 
 import { createProjectConnection, moveComponents } from "../../editor/editorActions";
+import { updateSerpentineCoreCenter } from "../../editor/physicalRouteActions";
 import { decodeReactFlowConnection } from "../../editor/connectionAdapter";
 import { deriveEditorProjection } from "../../editor/editorProjection";
 import { parseHandleId } from "../../editor/handleIds";
@@ -24,7 +31,11 @@ import { useProjectStore } from "../../state/projectStore.react";
 import { MicrofluidicNode } from "./MicrofluidicNode";
 import type { EditorEdgeData } from "../../editor/editor.types";
 
-const nodeTypes = { microfluidic: MicrofluidicNode, chipBoundary: ChipBoundaryNode };
+const nodeTypes = {
+  microfluidic: MicrofluidicNode,
+  chipBoundary: ChipBoundaryNode,
+  serpentineCore: SerpentineCoreNode,
+};
 const edgeTypes = { physicalRoute: PhysicalRouteEdge };
 
 export function EditorCanvas(props: {
@@ -64,9 +75,17 @@ function EditorCanvasInner(props: {
               ...node,
               position: dragPreviewPositions[node.id] ?? node.position,
             })),
+            ...(project
+              ? selectedSerpentineCoreNodes(project, selectedConnectionIds).map(
+                  (node) => ({
+                    ...node,
+                    position: dragPreviewPositions[node.id] ?? node.position,
+                  }),
+                )
+              : []),
           ]
         : [],
-    [projection, project, dragPreviewPositions],
+    [projection, project, dragPreviewPositions, selectedConnectionIds],
   );
   const edges = projection?.edges ?? [];
 
@@ -85,7 +104,7 @@ function EditorCanvasInner(props: {
         minZoom={0.25}
         maxZoom={2}
         snapToGrid
-        snapGrid={[mmToDisplay(MAJOR_GRID_MM), mmToDisplay(MAJOR_GRID_MM)]}
+        snapGrid={[mmToDisplay(PHYSICAL_SNAP_MM), mmToDisplay(PHYSICAL_SNAP_MM)]}
         selectionOnDrag
         selectionMode={SelectionMode.Partial}
         nodesDraggable
@@ -97,10 +116,48 @@ function EditorCanvasInner(props: {
           projectStore.getState().setDragPreviewPositions({ [node.id]: node.position });
         }}
         onNodeDragStop={(_, node, selectedNodes) => {
+          if (node.type === "serpentineCore") {
+            try {
+              const data = node.data as {
+                connectionId: string;
+                widthPx: number;
+                heightPx: number;
+              };
+              const center = {
+                x: displayToMm(node.position.x + data.widthPx / 2),
+                y: displayToMm(node.position.y + data.heightPx / 2),
+              };
+              projectStore.getState().clearDragPreviewPositions();
+              projectStore
+                .getState()
+                .updateProject(
+                  (currentProject) =>
+                    updateSerpentineCoreCenter(
+                      currentProject,
+                      data.connectionId as never,
+                      center,
+                    ),
+                  "Move serpentine core",
+                );
+            } catch (error) {
+              projectStore.getState().clearDragPreviewPositions();
+              projectStore.getState().setEditorError({
+                code:
+                  error instanceof Error && "code" in error
+                    ? String(error.code)
+                    : "EDITOR_CORE_MOVE_FAILED",
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : "Serpentine core could not move",
+              });
+            }
+            return;
+          }
           const movedNodes = selectedNodes.length > 0 ? selectedNodes : [node];
           const positions = Object.fromEntries(
             movedNodes
-              .filter((candidate) => candidate.type !== "chipBoundary")
+              .filter((candidate) => candidate.type === "microfluidic")
               .map((candidate) => [
                 candidate.id,
                 {
@@ -136,9 +193,15 @@ function EditorCanvasInner(props: {
           if (node.type === "chipBoundary") {
             return;
           }
+          if (node.type === "serpentineCore") {
+            const data = node.data as { connectionId: string };
+            projectStore.getState().setSelectedConnections([data.connectionId]);
+            return;
+          }
           projectStore.getState().setSelectedComponents([node.id]);
         }}
-        onEdgeClick={(_, edge) => {
+        onEdgeClick={(event, edge) => {
+          event.stopPropagation();
           projectStore.getState().setSelectedConnections([edge.id]);
         }}
       >
@@ -178,6 +241,74 @@ function ChipBoundaryNode(props: NodeProps) {
   );
 }
 
+function selectedSerpentineCoreNodes(
+  project: NonNullable<ReturnType<typeof projectStore.getState>["project"]>,
+  selectedConnectionIds: readonly string[],
+): Node[] {
+  if (selectedConnectionIds.length !== 1) {
+    return [];
+  }
+  const connectionId = selectedConnectionIds[0]!;
+  const route = project.physicalRoutes.find(
+    (candidate) => candidate.connectionId === connectionId,
+  );
+  if (
+    !route ||
+    route.pattern.kind !== "serpentine" ||
+    route.pattern.placement.mode !== "manual"
+  ) {
+    return [];
+  }
+  const geometry = deriveRouteGeometry(project, route);
+  if (!geometry.coreEnvelope) {
+    return [];
+  }
+  const paddingPx = mmToDisplay(0.5);
+  const widthPx = Math.max(
+    mmToDisplay(1),
+    mmToDisplay(geometry.coreEnvelope.maxX - geometry.coreEnvelope.minX) +
+      paddingPx * 2,
+  );
+  const heightPx = Math.max(
+    mmToDisplay(1),
+    mmToDisplay(geometry.coreEnvelope.maxY - geometry.coreEnvelope.minY) +
+      paddingPx * 2,
+  );
+  return [
+    {
+      id: `serpentine-core:${connectionId}`,
+      type: "serpentineCore",
+      position: {
+        x: mmToDisplay(geometry.coreEnvelope.minX) - paddingPx,
+        y: mmToDisplay(geometry.coreEnvelope.minY) - paddingPx,
+      },
+      data: {
+        connectionId,
+        widthPx,
+        heightPx,
+        label: "Serpentine core",
+      },
+      draggable: true,
+      selectable: true,
+      connectable: false,
+    },
+  ];
+}
+
+function SerpentineCoreNode(props: NodeProps) {
+  const data = props.data as { widthPx: number; heightPx: number; label: string };
+  return (
+    <div
+      className="serpentine-core-node"
+      style={{ width: data.widthPx, height: data.heightPx }}
+      aria-label={`${data.label} drag handle`}
+      title={`${data.label} drag handle`}
+    >
+      <span>{data.label}</span>
+    </div>
+  );
+}
+
 function PhysicalRouteEdge(props: EdgeProps) {
   const data = props.data as EditorEdgeData | undefined;
   const points =
@@ -192,12 +323,13 @@ function PhysicalRouteEdge(props: EdgeProps) {
     .join(" ");
   return (
     <BaseEdge
-      path={path}
+      path={data?.routePath || path}
       className={
-        data?.selected
+        props.selected || data?.selected
           ? "physical-route-edge physical-route-edge-selected"
           : "physical-route-edge"
       }
+      interactionWidth={props.interactionWidth ?? 24}
       style={{ strokeWidth: data?.routeWidthPx ?? 2 }}
     />
   );
@@ -207,10 +339,13 @@ function handleSelection(selection: OnSelectionChangeParams) {
   if (selection.nodes.length === 0 && selection.edges.length === 0) {
     return;
   }
-  const componentNodes = selection.nodes.filter((node) => node.type !== "chipBoundary");
+  const componentNodes = selection.nodes.filter((node) => node.type === "microfluidic");
+  const coreConnectionIds = selection.nodes
+    .filter((node) => node.type === "serpentineCore")
+    .map((node) => String((node.data as { connectionId: string }).connectionId));
   projectStore.getState().setEditorSelection({
     componentIds: componentNodes.map((node) => node.id),
-    connectionIds: selection.edges.map((edge) => edge.id),
+    connectionIds: [...selection.edges.map((edge) => edge.id), ...coreConnectionIds],
   });
 }
 

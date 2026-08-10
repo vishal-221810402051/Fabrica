@@ -59,7 +59,7 @@ Empty future architecture directories are intentionally deferred.
 
 ## Authoritative Project Model
 
-`packages/project-model` is the engineering source of truth for persisted project documents. Phase 8A owns schema version `0.2.0`, stable identifiers, component instances, ports, logical connections, physical routes, dimensions, engineering values, value provenance, schema validation, migration from `0.1.0`, and referential integrity checks. Future phases may add constraints, profile references, richer layout inputs, validation inputs, calculation inputs, design status, and migration metadata.
+`packages/project-model` is the engineering source of truth for persisted project documents. Phase 8C-A owns schema version `0.4.0`, stable identifiers, component instances, ports, logical connections, physical routes, route patterns, serpentine placement intent, dimensions, engineering values, value provenance, schema validation, migrations from prior local schemas, and referential integrity checks. Future phases may add constraints, profile references, richer layout inputs, validation inputs, calculation inputs, design status, and migration metadata.
 
 The canonical interchange representation is JSON Schema generated from the Zod 4 model in `packages/project-model`. Python Pydantic consumers are checked against the generated schema and shared fixtures. They must not become independently maintained engineering schemas.
 

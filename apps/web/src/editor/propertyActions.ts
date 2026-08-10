@@ -1,5 +1,6 @@
 import {
   ChipSchema,
+  createStableId,
   LayerSchema,
   LaneSchema,
   ManufacturingProcessSchema,
@@ -7,6 +8,8 @@ import {
   PortSchema,
   parseProject,
   type LayerId,
+  type Lane,
+  type LaneId,
   type ManufacturingProcess,
   type Material,
   type MaterialId,
@@ -126,6 +129,48 @@ export function updateLaneProperties(
   );
 }
 
+export function createLane(
+  project: Project,
+  now = new Date().toISOString(),
+): { project: Project; lane: Lane } {
+  const lane = LaneSchema.parse({
+    id: createStableId("lane"),
+    name: nextLaneName(project),
+    componentIds: [],
+    metadata: {},
+  }) as Lane;
+  return {
+    lane,
+    project: parseProject({
+      ...project,
+      lanes: [...project.lanes, lane],
+      updatedAt: now,
+    }),
+  };
+}
+
+export function deleteEmptyLane(
+  project: Project,
+  laneId: LaneId,
+  now = new Date().toISOString(),
+): Project {
+  const lane = requireLane(project, laneId);
+  const canonicalMembers = project.components.filter(
+    (component) => component.laneId === laneId,
+  );
+  if (lane.componentIds.length > 0 || canonicalMembers.length > 0) {
+    throw editorError(
+      "EDITOR_LANE_NOT_EMPTY",
+      "Unassign or reassign components before deleting this lane",
+    );
+  }
+  return parseProject({
+    ...project,
+    lanes: project.lanes.filter((item) => item.id !== laneId),
+    updatedAt: now,
+  });
+}
+
 export function updatePortProperties(
   project: Project,
   portId: PortId,
@@ -223,6 +268,16 @@ function requireName(value: string, label: string): string {
     throw editorError("EDITOR_PARAMETER_INVALID", `${label} is required`);
   }
   return trimmed;
+}
+
+function nextLaneName(project: Project): string {
+  const existing = new Set(project.lanes.map((lane) => lane.name));
+  for (let index = project.lanes.length + 1; ; index += 1) {
+    const name = `Lane ${index}`;
+    if (!existing.has(name)) {
+      return name;
+    }
+  }
 }
 
 function optionalText(value: string | undefined): string | undefined {

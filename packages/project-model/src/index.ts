@@ -104,7 +104,14 @@ export {
 } from "./entities/manufacturing-process";
 export { MaterialSchema, type Material } from "./entities/material";
 export { PortSchema, type Port } from "./entities/port";
-export { PhysicalRouteSchema, type PhysicalRoute } from "./entities/physical-route";
+export {
+  PhysicalRouteSchema,
+  RoutePatternSchema,
+  SerpentinePlacementSchema,
+  type PhysicalRoute,
+  type RoutePattern,
+  type SerpentinePlacement,
+} from "./entities/physical-route";
 export {
   ValidationResultSchema,
   ValidationSeveritySchema,

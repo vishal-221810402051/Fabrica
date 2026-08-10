@@ -43,12 +43,13 @@ React Flow nodes, handles, and edges. User interactions become narrow validated
 project mutations through Phase 3 history and autosave. React Flow viewport,
 selection, drag preview, and connection preview state are not serialized.
 
-Phase 8A adds first-class physical route records to the authoritative Project.
+Phase 8B adds first-class physical route patterns to the authoritative Project.
 Logical connections still describe topology only. `geometry-core` derives
-physical footprints, physical port positions, rendered route polylines, route
-endpoint positions, layer Z ranges, and CAD-space point transforms from the
-Project. React Flow positions remain display projection state and are converted
-back to physical millimetres only through validated editor mutations.
+physical footprints, physical port positions, route endpoints, route centerline
+line/arc primitives, actual route length, physical envelopes, layer Z ranges,
+and CAD-space point transforms from the Project. React Flow positions remain
+display projection state and are converted back to physical millimetres only
+through validated editor mutations.
 
 Phase 9A extends the projection chain with
 `geometry-core.projectToSceneGeometry(project)`. The scene geometry is plain
@@ -103,15 +104,45 @@ remain future validation responsibilities.
 
 2D layout and 3D preview are derived from the authoritative model and deterministic layout or geometry inputs. React Flow owns visual graph interaction, not engineering connectivity authority. React Three Fiber and Three.js own visualization, not production CAD.
 
-In Phase 8A, rendered chip boundaries, component footprints, physical ports,
+In Phase 8B, rendered chip boundaries, component footprints, physical ports,
 and physical routes are projections of persisted Project data. Route endpoints
-are derived from component ports. Route waypoints are persisted only as
-intermediate physical points.
+are derived from component ports. Manual route waypoints are persisted inside
+the manual route pattern; serpentine generated points and arcs are never
+persisted. They are regenerated from the route pattern, exact physical port
+positions, derived port outward normals, and current component placement.
+Serpentine generation derives an adaptive entry tail, parameter-owned stable
+core, and adaptive exit tail. Hard geometry requires bend radius greater than
+half route width, `pitch >= 2 * bendRadius`, and `pitch > route width`; these
+checks are not manufacturing DRC. Equality creates two tangent quarter arcs;
+larger pitch adds the transverse straight between those arcs. Entrance and exit
+lengths are minimum tail lengths, not exact persisted tail geometry.
+Target-length mode is a one-time apply-time solver that persists explicit
+amplitude after success. Serpentine placement is persisted only as auto mode or
+a manual chip-coordinate core center. Generated tail/core buckets, generated
+turn count, length breakdown, envelopes, points, solved auto placement, and
+warnings remain derived. Invalid route issues are returned when geometric
+constraints, complete-core fit, amplitude, target-length solving, tail fitting,
+or chip bounds cannot be satisfied.
 
-In Phase 9A, 3D preview meshes are derived from the same physical
-interpretation. Internal component and route meshes represent cavity/removal
-volumes inside a translucent chip preview. Incomplete physical routes remain
-guide geometry and are not rendered as manufacturable channels.
+The adaptive serpentine route derivation is a bounded deterministic search, not
+a persisted routing model. `geometry-core` first derives the immutable relative
+core shape, then either tries legal auto translations or uses the persisted
+manual core center exactly. Each tail candidate is filleted with the exact
+configured bend radius or rejected. A route is invalid only when no complete
+candidate can satisfy both tails, continuity, anchoring, and bounds. The same
+generated primitives feed 2D, 3D, and future CAD consumers.
+
+Connection-wire selection is also projection state. A 2D or 3D route click
+selects the persisted `connectionId`, resolves the route and derived lane
+context from the current Project, and edits route parameters through the
+authoritative physical-route mutation helpers. Inspector scope, hover state,
+hit targets, and viewer state are not serialized.
+
+In Phase 9A plus Phase 8B, 3D preview meshes are derived from the same
+physical interpretation and route primitives used by the 2D editor. Internal
+component and route meshes represent cavity/removal volumes inside a
+translucent chip preview. Incomplete physical routes remain guide geometry and
+are not rendered as manufacturable channels.
 
 ## CAD And Export Flow
 

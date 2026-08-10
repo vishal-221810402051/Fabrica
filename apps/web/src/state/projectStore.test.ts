@@ -15,10 +15,11 @@ describe("project store", () => {
     store.getState().createNewProject();
     const initial = store.getState();
 
-    expect(initial.project?.schemaVersion).toBe("0.2.0");
+    expect(initial.project?.schemaVersion).toBe("0.4.0");
     expect(isLocallySaved(initial)).toBe(false);
 
     store.getState().setSelection(["component_one"]);
+    store.getState().setInspectorScope("project");
     expect(isLocallyDirty(store.getState())).toBe(false);
 
     store.getState().updateProject(
@@ -81,6 +82,34 @@ describe("project store", () => {
     expect(canRedo(store.getState())).toBe(true);
     store.getState().redo();
     expect(store.getState().project?.name).toBe("Changed");
+  });
+
+  it("selects direct connection wires through the selection inspector scope", () => {
+    const store = createProjectStore();
+    store.getState().createNewProject();
+    store.getState().setInspectorScope("lane");
+    store.getState().setSelectedComponents(["component_existing"]);
+
+    store.getState().setSelectedConnections(["connection_direct"]);
+
+    expect(store.getState().selectedConnectionIds).toEqual(["connection_direct"]);
+    expect(store.getState().selectedComponentIds).toEqual([]);
+    expect(store.getState().inspectorScope).toBe("selection");
+  });
+
+  it("reselects the same connection wire without mutating the project", () => {
+    const store = createProjectStore();
+    store.getState().createNewProject();
+    const before = store.getState().project;
+
+    store.getState().setSelectedConnections(["connection_direct"]);
+    store.getState().setInspectorScope("lane");
+    store.getState().setSelectedConnections(["connection_direct"]);
+
+    expect(store.getState().project).toBe(before);
+    expect(store.getState().selectedConnectionIds).toEqual(["connection_direct"]);
+    expect(store.getState().selectedComponentIds).toEqual([]);
+    expect(store.getState().inspectorScope).toBe("selection");
   });
 
   it("groups multiple transaction mutations into one history entry and can cancel", () => {

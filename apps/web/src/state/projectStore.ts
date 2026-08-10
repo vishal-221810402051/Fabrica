@@ -35,6 +35,7 @@ export function createProjectStore() {
     history: createProjectHistory(),
     selectedComponentIds: [],
     selectedConnectionIds: [],
+    inspectorScope: "selection" as const,
     activeLayerId: null,
     activeLaneId: null,
     paletteCategory: "all",
@@ -254,19 +255,29 @@ export function createProjectStore() {
       ) {
         return;
       }
-      set({ selectedComponentIds: next, selectedConnectionIds: [] });
+      set({
+        selectedComponentIds: next,
+        selectedConnectionIds: [],
+        inspectorScope: "selection" as const,
+      });
     },
     setSelectedConnections: (connectionIds) => {
       const next = unique(connectionIds);
       const state = get();
       if (
         sameStrings(state.selectedConnectionIds, next) &&
-        state.selectedComponentIds.length === 0
+        state.selectedComponentIds.length === 0 &&
+        state.inspectorScope === "selection"
       ) {
         return;
       }
-      set({ selectedConnectionIds: next, selectedComponentIds: [] });
+      set({
+        selectedConnectionIds: next,
+        selectedComponentIds: [],
+        inspectorScope: "selection" as const,
+      });
     },
+    setInspectorScope: (scope) => set({ inspectorScope: scope }),
     setEditorSelection: (selection) => {
       const nextComponents = unique(selection.componentIds ?? []);
       const nextConnections = unique(selection.connectionIds ?? []);
@@ -280,12 +291,17 @@ export function createProjectStore() {
       set({
         selectedComponentIds: nextComponents,
         selectedConnectionIds: nextConnections,
+        inspectorScope:
+          nextComponents.length > 0 || nextConnections.length > 0
+            ? "selection"
+            : state.inspectorScope,
       });
     },
     clearEditorSelection: () =>
       set({
         selectedComponentIds: [],
         selectedConnectionIds: [],
+        inspectorScope: "selection" as const,
         connectionPreview: null,
         editorError: null,
       }),
@@ -354,6 +370,7 @@ export function resetProjectStoreForTests(): void {
     history: resetProjectHistory(createProjectHistory()),
     selectedComponentIds: [],
     selectedConnectionIds: [],
+    inspectorScope: "selection" as const,
     activeLayerId: null,
     activeLaneId: null,
     paletteCategory: "all",
@@ -368,6 +385,7 @@ function initialEditorState(project: projectModel.Project | null) {
   return {
     selectedComponentIds: [],
     selectedConnectionIds: [],
+    inspectorScope: "selection" as const,
     activeLayerId: project?.layers[0]?.id ?? null,
     activeLaneId: null,
     dragPreviewPositions: {},

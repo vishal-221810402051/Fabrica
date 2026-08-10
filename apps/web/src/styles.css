@@ -553,10 +553,48 @@ select {
 
 .physical-route-edge {
   stroke: #2563eb;
+  transition:
+    opacity 120ms ease,
+    stroke 120ms ease;
+}
+
+.react-flow__edge.selectable:hover .physical-route-edge {
+  opacity: 0.82;
+  stroke: #1d4ed8;
 }
 
 .physical-route-edge-selected {
   stroke: #0f766e;
+  filter: drop-shadow(0 0 4px rgb(15 118 110 / 45%));
+}
+
+.serpentine-core-node {
+  align-items: center;
+  background: rgb(255 255 255 / 20%);
+  border: 2px dashed #0f766e;
+  box-sizing: border-box;
+  color: #0f4f4a;
+  cursor: grab;
+  display: flex;
+  font-size: 0.65rem;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 24px;
+  min-width: 24px;
+  padding: 4px;
+  pointer-events: all;
+  text-align: center;
+}
+
+.serpentine-core-node:active {
+  cursor: grabbing;
+}
+
+.serpentine-core-node span {
+  background: rgb(255 255 255 / 86%);
+  border: 1px solid rgb(15 118 110 / 30%);
+  border-radius: 4px;
+  padding: 2px 5px;
 }
 
 .port-handle {

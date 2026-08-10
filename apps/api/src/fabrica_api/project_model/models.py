@@ -243,11 +243,74 @@ class Connection(StrictProjectModel):
     metadata: StrictMetadata
 
 
+class StraightRoutePattern(StrictProjectModel):
+    kind: Literal["straight"]
+
+
+class ManualRoutePattern(StrictProjectModel):
+    kind: Literal["manual"]
+    waypoints: list[Position2D]
+
+
+class SerpentineExplicitSizing(StrictProjectModel):
+    mode: Literal["explicit"]
+    amplitude: PositiveLengthQuantity
+
+
+class SerpentineTargetLengthSizing(StrictProjectModel):
+    mode: Literal["target-length"]
+    targetLength: PositiveLengthQuantity
+
+
+SerpentineSizing = Annotated[
+    SerpentineExplicitSizing | SerpentineTargetLengthSizing,
+    Field(discriminator="mode"),
+]
+
+
+class SerpentineAutoPlacement(StrictProjectModel):
+    mode: Literal["auto"]
+
+
+class SerpentineManualPlacement(StrictProjectModel):
+    mode: Literal["manual"]
+    coreCenter: Position2D
+
+
+SerpentinePlacement = Annotated[
+    SerpentineAutoPlacement | SerpentineManualPlacement,
+    Field(discriminator="mode"),
+]
+
+
+class SerpentineRoutePattern(StrictProjectModel):
+    kind: Literal["serpentine"]
+    turnCount: Annotated[StrictInt, Field(gt=0)]
+    pitch: PositiveLengthQuantity
+    axis: Literal["auto", "horizontal", "vertical"]
+    entranceLength: Annotated[
+        PositiveLengthQuantity | None,
+        BeforeValidator(reject_null),
+    ] = None
+    exitLength: Annotated[
+        PositiveLengthQuantity | None,
+        BeforeValidator(reject_null),
+    ] = None
+    sizing: SerpentineSizing
+    placement: SerpentinePlacement
+
+
+RoutePattern = Annotated[
+    StraightRoutePattern | ManualRoutePattern | SerpentineRoutePattern,
+    Field(discriminator="kind"),
+]
+
+
 class PhysicalRoute(StrictProjectModel):
     id: RouteId
     connectionId: ConnectionId
     layerId: LayerId
-    waypoints: list[Position2D]
+    pattern: RoutePattern
     width: Annotated[PositiveLengthQuantity | None, BeforeValidator(reject_null)] = None
     depth: Annotated[PositiveLengthQuantity | None, BeforeValidator(reject_null)] = None
     bendRadius: Annotated[
@@ -439,7 +502,7 @@ class ExportConfiguration(StrictProjectModel):
 
 
 class Project(StrictProjectModel):
-    schemaVersion: Literal["0.2.0"]
+    schemaVersion: Literal["0.4.0"]
     id: ProjectId
     name: NonEmptyString
     createdAt: IsoString

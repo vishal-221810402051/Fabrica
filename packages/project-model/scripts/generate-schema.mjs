@@ -7,12 +7,13 @@ import { z } from "zod";
 
 const require = createRequire(import.meta.url);
 const {
+  CURRENT_SCHEMA_VERSION,
   PROJECT_JSON_SCHEMA_ID,
   PROJECT_JSON_SCHEMA_TITLE,
   ProjectSchema,
 } = require("../dist/index.js");
 
-const outputPath = resolve("schema/project.v0.2.0.schema.json");
+const outputPath = resolve(`schema/project.v${CURRENT_SCHEMA_VERSION}.schema.json`);
 const prettierOptions = (await resolveConfig(outputPath)) ?? {};
 
 const schema = z.toJSONSchema(ProjectSchema, {

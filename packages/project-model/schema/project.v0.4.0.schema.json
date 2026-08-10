@@ -1,0 +1,3885 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "0.4.0" },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^project_[A-Za-z0-9][A-Za-z0-9_-]*$"
+    },
+    "name": { "type": "string", "minLength": 1 },
+    "createdAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+    },
+    "updatedAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+    },
+    "chip": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^chip_[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "overallDimensions": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "object",
+              "properties": {
+                "value": { "type": "number", "exclusiveMinimum": 0 },
+                "unit": { "type": "string", "const": "mm" },
+                "provenance": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "user-entered",
+                        "deterministically-calculated",
+                        "ai-assumed",
+                        "imported",
+                        "simulated",
+                        "system-default",
+                        "experimentally-calibrated",
+                        "manufacturer-supplied"
+                      ]
+                    },
+                    "note": { "type": "string" },
+                    "reference": { "type": "string" },
+                    "timestamp": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                    },
+                    "actor": { "type": "string" }
+                  },
+                  "required": ["source"],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["value", "unit", "provenance"],
+              "additionalProperties": false
+            },
+            "height": {
+              "type": "object",
+              "properties": {
+                "value": { "type": "number", "exclusiveMinimum": 0 },
+                "unit": { "type": "string", "const": "mm" },
+                "provenance": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "user-entered",
+                        "deterministically-calculated",
+                        "ai-assumed",
+                        "imported",
+                        "simulated",
+                        "system-default",
+                        "experimentally-calibrated",
+                        "manufacturer-supplied"
+                      ]
+                    },
+                    "note": { "type": "string" },
+                    "reference": { "type": "string" },
+                    "timestamp": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                    },
+                    "actor": { "type": "string" }
+                  },
+                  "required": ["source"],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["value", "unit", "provenance"],
+              "additionalProperties": false
+            },
+            "depth": {
+              "type": "object",
+              "properties": {
+                "value": { "type": "number", "exclusiveMinimum": 0 },
+                "unit": { "type": "string", "const": "mm" },
+                "provenance": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "user-entered",
+                        "deterministically-calculated",
+                        "ai-assumed",
+                        "imported",
+                        "simulated",
+                        "system-default",
+                        "experimentally-calibrated",
+                        "manufacturer-supplied"
+                      ]
+                    },
+                    "note": { "type": "string" },
+                    "reference": { "type": "string" },
+                    "timestamp": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                    },
+                    "actor": { "type": "string" }
+                  },
+                  "required": ["source"],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["value", "unit", "provenance"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["width", "height", "depth"],
+          "additionalProperties": false
+        },
+        "layerIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^layer_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          }
+        },
+        "materialId": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^material_[A-Za-z0-9][A-Za-z0-9_-]*$"
+        },
+        "metadata": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": { "$ref": "#/$defs/__schema0" }
+        }
+      },
+      "required": ["id", "name", "overallDimensions", "layerIds", "metadata"],
+      "additionalProperties": false
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^layer_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "name": { "type": "string", "minLength": 1 },
+          "order": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "thickness": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "number", "exclusiveMinimum": 0 },
+              "unit": { "type": "string", "const": "mm" },
+              "provenance": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "user-entered",
+                      "deterministically-calculated",
+                      "ai-assumed",
+                      "imported",
+                      "simulated",
+                      "system-default",
+                      "experimentally-calibrated",
+                      "manufacturer-supplied"
+                    ]
+                  },
+                  "note": { "type": "string" },
+                  "reference": { "type": "string" },
+                  "timestamp": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                  },
+                  "actor": { "type": "string" }
+                },
+                "required": ["source"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["value", "unit", "provenance"],
+            "additionalProperties": false
+          },
+          "materialId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^material_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": { "$ref": "#/$defs/__schema0" }
+          }
+        },
+        "required": ["id", "name", "order", "thickness", "metadata"],
+        "additionalProperties": false
+      }
+    },
+    "lanes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^lane_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "name": { "type": "string", "minLength": 1 },
+          "componentIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^component_[A-Za-z0-9][A-Za-z0-9_-]*$"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": { "$ref": "#/$defs/__schema0" }
+          }
+        },
+        "required": ["id", "name", "componentIds", "metadata"],
+        "additionalProperties": false
+      }
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^component_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "name": { "type": "string", "minLength": 1 },
+              "laneId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^lane_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "layerId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^layer_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  },
+                  "y": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["x", "y"],
+                "additionalProperties": false
+              },
+              "rotation": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": "number" },
+                  "unit": { "type": "string", "const": "rad" },
+                  "provenance": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "user-entered",
+                          "deterministically-calculated",
+                          "ai-assumed",
+                          "imported",
+                          "simulated",
+                          "system-default",
+                          "experimentally-calibrated",
+                          "manufacturer-supplied"
+                        ]
+                      },
+                      "note": { "type": "string" },
+                      "reference": { "type": "string" },
+                      "timestamp": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                      },
+                      "actor": { "type": "string" }
+                    },
+                    "required": ["source"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["value", "unit", "provenance"],
+                "additionalProperties": false
+              },
+              "portIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^port_[A-Za-z0-9][A-Za-z0-9_-]*$"
+                }
+              },
+              "metadata": {
+                "type": "object",
+                "propertyNames": { "type": "string" },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "extensions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$"
+                },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "kind": { "type": "string", "const": "channel" },
+              "channel": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "length": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "bendRadius": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "crossSection": { "type": "string", "const": "rectangular" },
+                      "width": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "depth": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["length", "crossSection", "width", "depth"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "length": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "bendRadius": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "crossSection": { "type": "string", "const": "circular" },
+                      "diameter": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["length", "crossSection", "diameter"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "length": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "bendRadius": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "crossSection": { "type": "string", "const": "trapezoidal" },
+                      "width": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "depth": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["length", "crossSection", "width", "depth"],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "layerId",
+              "position",
+              "rotation",
+              "portIds",
+              "metadata",
+              "extensions",
+              "kind",
+              "channel"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^component_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "name": { "type": "string", "minLength": 1 },
+              "laneId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^lane_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "layerId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^layer_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  },
+                  "y": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["x", "y"],
+                "additionalProperties": false
+              },
+              "rotation": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": "number" },
+                  "unit": { "type": "string", "const": "rad" },
+                  "provenance": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "user-entered",
+                          "deterministically-calculated",
+                          "ai-assumed",
+                          "imported",
+                          "simulated",
+                          "system-default",
+                          "experimentally-calibrated",
+                          "manufacturer-supplied"
+                        ]
+                      },
+                      "note": { "type": "string" },
+                      "reference": { "type": "string" },
+                      "timestamp": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                      },
+                      "actor": { "type": "string" }
+                    },
+                    "required": ["source"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["value", "unit", "provenance"],
+                "additionalProperties": false
+              },
+              "portIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^port_[A-Za-z0-9][A-Za-z0-9_-]*$"
+                }
+              },
+              "metadata": {
+                "type": "object",
+                "propertyNames": { "type": "string" },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "extensions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$"
+                },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "kind": { "type": "string", "const": "junction" },
+              "junction": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "enum": ["y", "t", "splitter", "merger", "manifold", "generic"]
+                  }
+                },
+                "required": ["category"],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "layerId",
+              "position",
+              "rotation",
+              "portIds",
+              "metadata",
+              "extensions",
+              "kind",
+              "junction"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^component_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "name": { "type": "string", "minLength": 1 },
+              "laneId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^lane_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "layerId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^layer_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  },
+                  "y": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["x", "y"],
+                "additionalProperties": false
+              },
+              "rotation": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": "number" },
+                  "unit": { "type": "string", "const": "rad" },
+                  "provenance": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "user-entered",
+                          "deterministically-calculated",
+                          "ai-assumed",
+                          "imported",
+                          "simulated",
+                          "system-default",
+                          "experimentally-calibrated",
+                          "manufacturer-supplied"
+                        ]
+                      },
+                      "note": { "type": "string" },
+                      "reference": { "type": "string" },
+                      "timestamp": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                      },
+                      "actor": { "type": "string" }
+                    },
+                    "required": ["source"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["value", "unit", "provenance"],
+                "additionalProperties": false
+              },
+              "portIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^port_[A-Za-z0-9][A-Za-z0-9_-]*$"
+                }
+              },
+              "metadata": {
+                "type": "object",
+                "propertyNames": { "type": "string" },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "extensions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$"
+                },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "kind": { "type": "string", "const": "chamber" },
+              "chamber": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "metering",
+                      "reaction",
+                      "incubation",
+                      "detection",
+                      "mixing",
+                      "neutralization",
+                      "generic"
+                    ]
+                  },
+                  "dimensions": {
+                    "type": "object",
+                    "properties": {
+                      "width": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "height": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "depth": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["width", "height", "depth"],
+                    "additionalProperties": false
+                  },
+                  "declaredVolume": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number", "exclusiveMinimum": 0 },
+                      "unit": { "type": "string", "const": "mm3" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["category", "dimensions"],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "layerId",
+              "position",
+              "rotation",
+              "portIds",
+              "metadata",
+              "extensions",
+              "kind",
+              "chamber"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^component_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "name": { "type": "string", "minLength": 1 },
+              "laneId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^lane_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "layerId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^layer_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  },
+                  "y": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["x", "y"],
+                "additionalProperties": false
+              },
+              "rotation": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": "number" },
+                  "unit": { "type": "string", "const": "rad" },
+                  "provenance": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "user-entered",
+                          "deterministically-calculated",
+                          "ai-assumed",
+                          "imported",
+                          "simulated",
+                          "system-default",
+                          "experimentally-calibrated",
+                          "manufacturer-supplied"
+                        ]
+                      },
+                      "note": { "type": "string" },
+                      "reference": { "type": "string" },
+                      "timestamp": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                      },
+                      "actor": { "type": "string" }
+                    },
+                    "required": ["source"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["value", "unit", "provenance"],
+                "additionalProperties": false
+              },
+              "portIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^port_[A-Za-z0-9][A-Za-z0-9_-]*$"
+                }
+              },
+              "metadata": {
+                "type": "object",
+                "propertyNames": { "type": "string" },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "extensions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$"
+                },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "kind": { "type": "string", "const": "reservoir" },
+              "reservoir": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "enum": ["inlet", "outlet", "reagent", "waste", "buffer", "generic"]
+                  },
+                  "dimensions": {
+                    "type": "object",
+                    "properties": {
+                      "width": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "height": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "depth": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["width", "height", "depth"],
+                    "additionalProperties": false
+                  },
+                  "declaredCapacity": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number", "exclusiveMinimum": 0 },
+                      "unit": { "type": "string", "const": "mm3" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["category", "dimensions"],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "layerId",
+              "position",
+              "rotation",
+              "portIds",
+              "metadata",
+              "extensions",
+              "kind",
+              "reservoir"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^component_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "name": { "type": "string", "minLength": 1 },
+              "laneId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^lane_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "layerId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^layer_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  },
+                  "y": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["x", "y"],
+                "additionalProperties": false
+              },
+              "rotation": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": "number" },
+                  "unit": { "type": "string", "const": "rad" },
+                  "provenance": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "user-entered",
+                          "deterministically-calculated",
+                          "ai-assumed",
+                          "imported",
+                          "simulated",
+                          "system-default",
+                          "experimentally-calibrated",
+                          "manufacturer-supplied"
+                        ]
+                      },
+                      "note": { "type": "string" },
+                      "reference": { "type": "string" },
+                      "timestamp": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                      },
+                      "actor": { "type": "string" }
+                    },
+                    "required": ["source"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["value", "unit", "provenance"],
+                "additionalProperties": false
+              },
+              "portIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^port_[A-Za-z0-9][A-Za-z0-9_-]*$"
+                }
+              },
+              "metadata": {
+                "type": "object",
+                "propertyNames": { "type": "string" },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "extensions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$"
+                },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "kind": { "type": "string", "const": "valve" },
+              "valve": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "pneumatic",
+                      "membrane",
+                      "mechanical",
+                      "capillary",
+                      "generic"
+                    ]
+                  },
+                  "normallyOpen": { "type": "boolean" },
+                  "actuatorInterface": {
+                    "type": "object",
+                    "propertyNames": { "type": "string" },
+                    "additionalProperties": { "$ref": "#/$defs/__schema0" }
+                  }
+                },
+                "required": ["category"],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "layerId",
+              "position",
+              "rotation",
+              "portIds",
+              "metadata",
+              "extensions",
+              "kind",
+              "valve"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^component_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "name": { "type": "string", "minLength": 1 },
+              "laneId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^lane_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "layerId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^layer_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  },
+                  "y": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["x", "y"],
+                "additionalProperties": false
+              },
+              "rotation": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": "number" },
+                  "unit": { "type": "string", "const": "rad" },
+                  "provenance": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "user-entered",
+                          "deterministically-calculated",
+                          "ai-assumed",
+                          "imported",
+                          "simulated",
+                          "system-default",
+                          "experimentally-calibrated",
+                          "manufacturer-supplied"
+                        ]
+                      },
+                      "note": { "type": "string" },
+                      "reference": { "type": "string" },
+                      "timestamp": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                      },
+                      "actor": { "type": "string" }
+                    },
+                    "required": ["source"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["value", "unit", "provenance"],
+                "additionalProperties": false
+              },
+              "portIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^port_[A-Za-z0-9][A-Za-z0-9_-]*$"
+                }
+              },
+              "metadata": {
+                "type": "object",
+                "propertyNames": { "type": "string" },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "extensions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$"
+                },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "kind": { "type": "string", "const": "sensor-interface" },
+              "sensorInterface": {
+                "type": "object",
+                "properties": {
+                  "interfaceType": {
+                    "type": "string",
+                    "enum": [
+                      "electrical",
+                      "electrochemical",
+                      "thermal",
+                      "pressure",
+                      "generic"
+                    ]
+                  },
+                  "measurementCategory": {
+                    "type": "string",
+                    "enum": [
+                      "temperature",
+                      "pressure",
+                      "flow",
+                      "conductivity",
+                      "optical",
+                      "generic"
+                    ]
+                  },
+                  "dimensions": {
+                    "type": "object",
+                    "properties": {
+                      "width": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "height": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["width", "height"],
+                    "additionalProperties": false
+                  },
+                  "position": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number" },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "y": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number" },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["x", "y"],
+                    "additionalProperties": false
+                  },
+                  "referenceMetadata": {
+                    "type": "object",
+                    "propertyNames": { "type": "string" },
+                    "additionalProperties": { "$ref": "#/$defs/__schema0" }
+                  }
+                },
+                "required": ["interfaceType", "dimensions"],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "layerId",
+              "position",
+              "rotation",
+              "portIds",
+              "metadata",
+              "extensions",
+              "kind",
+              "sensorInterface"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^component_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "name": { "type": "string", "minLength": 1 },
+              "laneId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^lane_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "layerId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^layer_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  },
+                  "y": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["x", "y"],
+                "additionalProperties": false
+              },
+              "rotation": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": "number" },
+                  "unit": { "type": "string", "const": "rad" },
+                  "provenance": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "user-entered",
+                          "deterministically-calculated",
+                          "ai-assumed",
+                          "imported",
+                          "simulated",
+                          "system-default",
+                          "experimentally-calibrated",
+                          "manufacturer-supplied"
+                        ]
+                      },
+                      "note": { "type": "string" },
+                      "reference": { "type": "string" },
+                      "timestamp": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                      },
+                      "actor": { "type": "string" }
+                    },
+                    "required": ["source"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["value", "unit", "provenance"],
+                "additionalProperties": false
+              },
+              "portIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^port_[A-Za-z0-9][A-Za-z0-9_-]*$"
+                }
+              },
+              "metadata": {
+                "type": "object",
+                "propertyNames": { "type": "string" },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "extensions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$"
+                },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "kind": { "type": "string", "const": "optical-interface" },
+              "opticalInterface": {
+                "type": "object",
+                "properties": {
+                  "interfaceType": {
+                    "type": "string",
+                    "enum": [
+                      "window",
+                      "waveguide",
+                      "fiber-coupling",
+                      "detection-zone",
+                      "generic"
+                    ]
+                  },
+                  "measurementCategory": {
+                    "type": "string",
+                    "enum": [
+                      "absorbance",
+                      "fluorescence",
+                      "scattering",
+                      "imaging",
+                      "generic"
+                    ]
+                  },
+                  "dimensions": {
+                    "type": "object",
+                    "properties": {
+                      "width": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "height": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["width", "height"],
+                    "additionalProperties": false
+                  },
+                  "position": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number" },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "y": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number" },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["x", "y"],
+                    "additionalProperties": false
+                  },
+                  "referenceMetadata": {
+                    "type": "object",
+                    "propertyNames": { "type": "string" },
+                    "additionalProperties": { "$ref": "#/$defs/__schema0" }
+                  }
+                },
+                "required": ["interfaceType", "dimensions"],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "layerId",
+              "position",
+              "rotation",
+              "portIds",
+              "metadata",
+              "extensions",
+              "kind",
+              "opticalInterface"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^component_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "name": { "type": "string", "minLength": 1 },
+              "laneId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^lane_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "layerId": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^layer_[A-Za-z0-9][A-Za-z0-9_-]*$"
+              },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  },
+                  "y": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number" },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["x", "y"],
+                "additionalProperties": false
+              },
+              "rotation": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": "number" },
+                  "unit": { "type": "string", "const": "rad" },
+                  "provenance": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "user-entered",
+                          "deterministically-calculated",
+                          "ai-assumed",
+                          "imported",
+                          "simulated",
+                          "system-default",
+                          "experimentally-calibrated",
+                          "manufacturer-supplied"
+                        ]
+                      },
+                      "note": { "type": "string" },
+                      "reference": { "type": "string" },
+                      "timestamp": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                      },
+                      "actor": { "type": "string" }
+                    },
+                    "required": ["source"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["value", "unit", "provenance"],
+                "additionalProperties": false
+              },
+              "portIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^port_[A-Za-z0-9][A-Za-z0-9_-]*$"
+                }
+              },
+              "metadata": {
+                "type": "object",
+                "propertyNames": { "type": "string" },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "extensions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$"
+                },
+                "additionalProperties": { "$ref": "#/$defs/__schema0" }
+              },
+              "kind": { "type": "string", "const": "generic" },
+              "dimensions": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "width": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "height": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["width", "height"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "width": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "height": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      },
+                      "depth": {
+                        "type": "object",
+                        "properties": {
+                          "value": { "type": "number", "exclusiveMinimum": 0 },
+                          "unit": { "type": "string", "const": "mm" },
+                          "provenance": {
+                            "type": "object",
+                            "properties": {
+                              "source": {
+                                "type": "string",
+                                "enum": [
+                                  "user-entered",
+                                  "deterministically-calculated",
+                                  "ai-assumed",
+                                  "imported",
+                                  "simulated",
+                                  "system-default",
+                                  "experimentally-calibrated",
+                                  "manufacturer-supplied"
+                                ]
+                              },
+                              "note": { "type": "string" },
+                              "reference": { "type": "string" },
+                              "timestamp": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                              },
+                              "actor": { "type": "string" }
+                            },
+                            "required": ["source"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["value", "unit", "provenance"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["width", "height", "depth"],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "layerId",
+              "position",
+              "rotation",
+              "portIds",
+              "metadata",
+              "extensions",
+              "kind"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "ports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^port_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "componentId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^component_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "name": { "type": "string", "minLength": 1 },
+          "direction": {
+            "type": "string",
+            "enum": ["input", "output", "bidirectional"]
+          },
+          "fluidId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^fluid_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": { "$ref": "#/$defs/__schema0" }
+          }
+        },
+        "required": ["id", "componentId", "name", "direction", "metadata"],
+        "additionalProperties": false
+      }
+    },
+    "connections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^connection_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "sourcePortId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^port_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "targetPortId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^port_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": { "$ref": "#/$defs/__schema0" }
+          }
+        },
+        "required": ["id", "sourcePortId", "targetPortId", "metadata"],
+        "additionalProperties": false
+      }
+    },
+    "physicalRoutes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^route_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "connectionId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^connection_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "layerId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^layer_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "pattern": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": { "kind": { "type": "string", "const": "straight" } },
+                "required": ["kind"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "manual" },
+                  "waypoints": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "type": "object",
+                          "properties": {
+                            "value": { "type": "number" },
+                            "unit": { "type": "string", "const": "mm" },
+                            "provenance": {
+                              "type": "object",
+                              "properties": {
+                                "source": {
+                                  "type": "string",
+                                  "enum": [
+                                    "user-entered",
+                                    "deterministically-calculated",
+                                    "ai-assumed",
+                                    "imported",
+                                    "simulated",
+                                    "system-default",
+                                    "experimentally-calibrated",
+                                    "manufacturer-supplied"
+                                  ]
+                                },
+                                "note": { "type": "string" },
+                                "reference": { "type": "string" },
+                                "timestamp": {
+                                  "type": "string",
+                                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                                },
+                                "actor": { "type": "string" }
+                              },
+                              "required": ["source"],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": ["value", "unit", "provenance"],
+                          "additionalProperties": false
+                        },
+                        "y": {
+                          "type": "object",
+                          "properties": {
+                            "value": { "type": "number" },
+                            "unit": { "type": "string", "const": "mm" },
+                            "provenance": {
+                              "type": "object",
+                              "properties": {
+                                "source": {
+                                  "type": "string",
+                                  "enum": [
+                                    "user-entered",
+                                    "deterministically-calculated",
+                                    "ai-assumed",
+                                    "imported",
+                                    "simulated",
+                                    "system-default",
+                                    "experimentally-calibrated",
+                                    "manufacturer-supplied"
+                                  ]
+                                },
+                                "note": { "type": "string" },
+                                "reference": { "type": "string" },
+                                "timestamp": {
+                                  "type": "string",
+                                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                                },
+                                "actor": { "type": "string" }
+                              },
+                              "required": ["source"],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": ["value", "unit", "provenance"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": ["x", "y"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["kind", "waypoints"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "serpentine" },
+                  "turnCount": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "pitch": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number", "exclusiveMinimum": 0 },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  },
+                  "axis": {
+                    "type": "string",
+                    "enum": ["auto", "horizontal", "vertical"]
+                  },
+                  "entranceLength": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number", "exclusiveMinimum": 0 },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  },
+                  "exitLength": {
+                    "type": "object",
+                    "properties": {
+                      "value": { "type": "number", "exclusiveMinimum": 0 },
+                      "unit": { "type": "string", "const": "mm" },
+                      "provenance": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "user-entered",
+                              "deterministically-calculated",
+                              "ai-assumed",
+                              "imported",
+                              "simulated",
+                              "system-default",
+                              "experimentally-calibrated",
+                              "manufacturer-supplied"
+                            ]
+                          },
+                          "note": { "type": "string" },
+                          "reference": { "type": "string" },
+                          "timestamp": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                          },
+                          "actor": { "type": "string" }
+                        },
+                        "required": ["source"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["value", "unit", "provenance"],
+                    "additionalProperties": false
+                  },
+                  "sizing": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "mode": { "type": "string", "const": "explicit" },
+                          "amplitude": {
+                            "type": "object",
+                            "properties": {
+                              "value": { "type": "number", "exclusiveMinimum": 0 },
+                              "unit": { "type": "string", "const": "mm" },
+                              "provenance": {
+                                "type": "object",
+                                "properties": {
+                                  "source": {
+                                    "type": "string",
+                                    "enum": [
+                                      "user-entered",
+                                      "deterministically-calculated",
+                                      "ai-assumed",
+                                      "imported",
+                                      "simulated",
+                                      "system-default",
+                                      "experimentally-calibrated",
+                                      "manufacturer-supplied"
+                                    ]
+                                  },
+                                  "note": { "type": "string" },
+                                  "reference": { "type": "string" },
+                                  "timestamp": {
+                                    "type": "string",
+                                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                                  },
+                                  "actor": { "type": "string" }
+                                },
+                                "required": ["source"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": ["value", "unit", "provenance"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["mode", "amplitude"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "mode": { "type": "string", "const": "target-length" },
+                          "targetLength": {
+                            "type": "object",
+                            "properties": {
+                              "value": { "type": "number", "exclusiveMinimum": 0 },
+                              "unit": { "type": "string", "const": "mm" },
+                              "provenance": {
+                                "type": "object",
+                                "properties": {
+                                  "source": {
+                                    "type": "string",
+                                    "enum": [
+                                      "user-entered",
+                                      "deterministically-calculated",
+                                      "ai-assumed",
+                                      "imported",
+                                      "simulated",
+                                      "system-default",
+                                      "experimentally-calibrated",
+                                      "manufacturer-supplied"
+                                    ]
+                                  },
+                                  "note": { "type": "string" },
+                                  "reference": { "type": "string" },
+                                  "timestamp": {
+                                    "type": "string",
+                                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                                  },
+                                  "actor": { "type": "string" }
+                                },
+                                "required": ["source"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": ["value", "unit", "provenance"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["mode", "targetLength"],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "placement": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": { "mode": { "type": "string", "const": "auto" } },
+                        "required": ["mode"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "mode": { "type": "string", "const": "manual" },
+                          "coreCenter": {
+                            "type": "object",
+                            "properties": {
+                              "x": {
+                                "type": "object",
+                                "properties": {
+                                  "value": { "type": "number" },
+                                  "unit": { "type": "string", "const": "mm" },
+                                  "provenance": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "type": "string",
+                                        "enum": [
+                                          "user-entered",
+                                          "deterministically-calculated",
+                                          "ai-assumed",
+                                          "imported",
+                                          "simulated",
+                                          "system-default",
+                                          "experimentally-calibrated",
+                                          "manufacturer-supplied"
+                                        ]
+                                      },
+                                      "note": { "type": "string" },
+                                      "reference": { "type": "string" },
+                                      "timestamp": {
+                                        "type": "string",
+                                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                                      },
+                                      "actor": { "type": "string" }
+                                    },
+                                    "required": ["source"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["value", "unit", "provenance"],
+                                "additionalProperties": false
+                              },
+                              "y": {
+                                "type": "object",
+                                "properties": {
+                                  "value": { "type": "number" },
+                                  "unit": { "type": "string", "const": "mm" },
+                                  "provenance": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "type": "string",
+                                        "enum": [
+                                          "user-entered",
+                                          "deterministically-calculated",
+                                          "ai-assumed",
+                                          "imported",
+                                          "simulated",
+                                          "system-default",
+                                          "experimentally-calibrated",
+                                          "manufacturer-supplied"
+                                        ]
+                                      },
+                                      "note": { "type": "string" },
+                                      "reference": { "type": "string" },
+                                      "timestamp": {
+                                        "type": "string",
+                                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                                      },
+                                      "actor": { "type": "string" }
+                                    },
+                                    "required": ["source"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["value", "unit", "provenance"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": ["x", "y"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": ["mode", "coreCenter"],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "turnCount",
+                  "pitch",
+                  "axis",
+                  "sizing",
+                  "placement"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "width": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "number", "exclusiveMinimum": 0 },
+              "unit": { "type": "string", "const": "mm" },
+              "provenance": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "user-entered",
+                      "deterministically-calculated",
+                      "ai-assumed",
+                      "imported",
+                      "simulated",
+                      "system-default",
+                      "experimentally-calibrated",
+                      "manufacturer-supplied"
+                    ]
+                  },
+                  "note": { "type": "string" },
+                  "reference": { "type": "string" },
+                  "timestamp": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                  },
+                  "actor": { "type": "string" }
+                },
+                "required": ["source"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["value", "unit", "provenance"],
+            "additionalProperties": false
+          },
+          "depth": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "number", "exclusiveMinimum": 0 },
+              "unit": { "type": "string", "const": "mm" },
+              "provenance": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "user-entered",
+                      "deterministically-calculated",
+                      "ai-assumed",
+                      "imported",
+                      "simulated",
+                      "system-default",
+                      "experimentally-calibrated",
+                      "manufacturer-supplied"
+                    ]
+                  },
+                  "note": { "type": "string" },
+                  "reference": { "type": "string" },
+                  "timestamp": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                  },
+                  "actor": { "type": "string" }
+                },
+                "required": ["source"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["value", "unit", "provenance"],
+            "additionalProperties": false
+          },
+          "bendRadius": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "number", "exclusiveMinimum": 0 },
+              "unit": { "type": "string", "const": "mm" },
+              "provenance": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "user-entered",
+                      "deterministically-calculated",
+                      "ai-assumed",
+                      "imported",
+                      "simulated",
+                      "system-default",
+                      "experimentally-calibrated",
+                      "manufacturer-supplied"
+                    ]
+                  },
+                  "note": { "type": "string" },
+                  "reference": { "type": "string" },
+                  "timestamp": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+                  },
+                  "actor": { "type": "string" }
+                },
+                "required": ["source"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["value", "unit", "provenance"],
+            "additionalProperties": false
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": { "$ref": "#/$defs/__schema0" }
+          }
+        },
+        "required": ["id", "connectionId", "layerId", "pattern", "metadata"],
+        "additionalProperties": false
+      }
+    },
+    "fluids": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^fluid_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "name": { "type": "string", "minLength": 1 },
+          "category": {
+            "type": "string",
+            "enum": [
+              "aqueous",
+              "oil",
+              "buffer",
+              "reagent",
+              "sample",
+              "waste",
+              "gas",
+              "unknown"
+            ]
+          },
+          "manufacturer": { "type": "string" },
+          "reference": { "type": "string" },
+          "metadata": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": { "$ref": "#/$defs/__schema0" }
+          }
+        },
+        "required": ["id", "name", "category", "metadata"],
+        "additionalProperties": false
+      }
+    },
+    "materials": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^material_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "name": { "type": "string", "minLength": 1 },
+          "category": {
+            "type": "string",
+            "enum": [
+              "pdms",
+              "glass",
+              "silicon",
+              "thermoplastic",
+              "metal",
+              "adhesive",
+              "other",
+              "unknown"
+            ]
+          },
+          "manufacturer": { "type": "string" },
+          "reference": { "type": "string" },
+          "metadata": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": { "$ref": "#/$defs/__schema0" }
+          }
+        },
+        "required": ["id", "name", "category", "metadata"],
+        "additionalProperties": false
+      }
+    },
+    "manufacturingProcesses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^process_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "name": { "type": "string", "minLength": 1 },
+          "processType": {
+            "type": "string",
+            "enum": [
+              "soft-lithography",
+              "micromilling",
+              "injection-molding",
+              "laser-ablation",
+              "3d-printing",
+              "other",
+              "unknown"
+            ]
+          },
+          "profileReference": { "type": "string" },
+          "metadata": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": { "$ref": "#/$defs/__schema0" }
+          }
+        },
+        "required": ["id", "name", "processType", "metadata"],
+        "additionalProperties": false
+      }
+    },
+    "validationResults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^result_[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "ruleId": { "type": "string", "minLength": 1 },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "critical-warning",
+              "warning",
+              "recommendation",
+              "information"
+            ]
+          },
+          "message": { "type": "string", "minLength": 1 },
+          "entityReferences": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "entityType": {
+                  "type": "string",
+                  "enum": ["layer", "component", "port", "connection"]
+                },
+                "entityId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^layer_[A-Za-z0-9][A-Za-z0-9_-]*$"
+                    },
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^component_[A-Za-z0-9][A-Za-z0-9_-]*$"
+                    },
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^port_[A-Za-z0-9][A-Za-z0-9_-]*$"
+                    },
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^connection_[A-Za-z0-9][A-Za-z0-9_-]*$"
+                    }
+                  ]
+                }
+              },
+              "required": ["entityType", "entityId"],
+              "additionalProperties": false
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+          },
+          "metadata": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": { "$ref": "#/$defs/__schema0" }
+          }
+        },
+        "required": [
+          "id",
+          "ruleId",
+          "severity",
+          "message",
+          "entityReferences",
+          "createdAt",
+          "metadata"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "exportConfiguration": {
+      "type": "object",
+      "properties": {
+        "requestedFormats": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["json", "step", "stl"] }
+        },
+        "includeValidationResults": { "type": "boolean" },
+        "metadata": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": { "$ref": "#/$defs/__schema0" }
+        }
+      },
+      "required": ["requestedFormats", "includeValidationResults", "metadata"],
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "propertyNames": { "type": "string" },
+      "additionalProperties": { "$ref": "#/$defs/__schema0" }
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$" },
+      "additionalProperties": { "$ref": "#/$defs/__schema0" }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "createdAt",
+    "updatedAt",
+    "chip",
+    "layers",
+    "lanes",
+    "components",
+    "ports",
+    "connections",
+    "physicalRoutes",
+    "fluids",
+    "materials",
+    "manufacturingProcesses",
+    "validationResults",
+    "exportConfiguration",
+    "metadata",
+    "extensions"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
+      "anyOf": [
+        {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" },
+            { "type": "null" }
+          ]
+        },
+        { "type": "array", "items": { "$ref": "#/$defs/__schema0" } },
+        {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": { "$ref": "#/$defs/__schema0" }
+        }
+      ]
+    }
+  },
+  "$id": "https://fabricgamma.local/schema/project.v0.4.0.schema.json",
+  "title": "Fabricgamma Project Model v0.4.0"
+}

@@ -68,12 +68,18 @@ chambers, `junction.splitter`, `junction.merger`, and complete physical
 routes. Unsupported components are represented with derived warnings and must
 not receive fabricated footprints or depths.
 
-Complete physical routes render deterministic rectangular prism segments from
-derived source port, intermediate waypoints, derived target port, route width,
-route depth, and route layer. Joint boxes fill polyline corners to avoid visual
-gaps. Route `bendRadius` is not geometrically represented in Phase 9A; when
-present, the viewer emits a bend-radius approximation warning and renders sharp
-segments.
+Complete physical routes render deterministic rectangular prism previews from
+`geometry-core` centerline primitives, route width, route depth, and route
+layer. Line primitives become straight swept previews. Arc primitives are
+tessellated deterministically for Three.js preview while the arc primitive
+remains the engineering authority. Manual route waypoints and serpentine
+parameters are never recalculated in the viewer. Compact serpentine geometric
+constraints, complete-turn validation, auto/manual core placement, adaptive
+entry/exit tails, target-length solving, length breakdown, and invalid-route
+issues therefore come from `geometry-core` and are shared by the 2D editor and
+3D preview. Moving a manual serpentine core in 2D changes only persisted
+`coreCenter`; the viewer receives the regenerated combined primitives and does
+not implement a separate serpentine or tail router.
 
 Routes missing width or depth render only as incomplete guide geometry and are
 labelled not CAD-ready. The viewer must not invent manufacturable channel
@@ -93,6 +99,10 @@ selects its authoritative component ID. Clicking a route selects its
 connection ID. Empty-space clicks clear selection. No selection data enters the
 Project.
 
+2D wire clicks and 3D route clicks share that same `connectionId` selection
+state. Selecting a route in either view opens the Connection/PhysicalRoute
+inspector and highlights the corresponding route projection in the other view.
+
 The viewer supports perspective and orthographic cameras, orbit/pan/zoom,
 reset/fit, top/front/side/isometric presets, solid/transparent/wireframe
 materials, per-layer visibility, and optional global port markers. Port marker
@@ -103,8 +113,8 @@ colors reuse the 2D convention: input red, output blue.
 The 3D preview and future CAD generation must consume the same
 `geometry-core` physical interpretation. Browser mesh construction and CAD
 solid construction may use different rendering/solid kernels, but they should
-share chip/layer/component/port/route scene inputs and warnings wherever
-possible.
+share chip/layer/component/port/route scene inputs, route line/arc primitives,
+actual lengths, envelopes, and warnings wherever possible.
 
 Phase 9A explicitly excludes STL, STEP, CAD booleans, production B-rep,
 manufacturing DRC, CFD, automatic routing, auto-layout, engineering

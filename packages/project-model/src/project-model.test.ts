@@ -113,7 +113,7 @@ describe("project integrity", () => {
           id: "route_missing_refs",
           connectionId: "connection_missing",
           layerId: "layer_missing",
-          waypoints: [],
+          pattern: { kind: "straight" },
           metadata: {},
         },
       ],
@@ -147,13 +147,121 @@ describe("serialization and versioning", () => {
     expect((migrated as { id: string }).id).toBe("project_roundtrip");
   });
 
-  it("migrates Phase 7 project documents to physical route storage", () => {
+  it("migrates Phase 7 project documents to parametric physical route storage", () => {
     const input = loadFixture("minimal-valid-project.json");
     const migrated = migrateProjectDocument(input);
 
-    expect((migrated as { schemaVersion: string }).schemaVersion).toBe("0.2.0");
+    expect((migrated as { schemaVersion: string }).schemaVersion).toBe("0.4.0");
     expect((migrated as { physicalRoutes: unknown[] }).physicalRoutes).toEqual([]);
     expect((migrated as { id: string }).id).toBe("project_minimal");
+  });
+
+  it("migrates Phase 8A route waypoints to route patterns", () => {
+    const input = parseProject(loadFixture("current-version-roundtrip.json"));
+    const legacy = {
+      ...input,
+      schemaVersion: "0.2.0",
+      physicalRoutes: [
+        {
+          id: "route_empty",
+          connectionId: "connection_empty",
+          layerId: "layer_roundtrip",
+          waypoints: [],
+          metadata: {},
+        },
+        {
+          id: "route_manual",
+          connectionId: "connection_manual",
+          layerId: "layer_roundtrip",
+          waypoints: [
+            {
+              x: {
+                value: 1,
+                unit: "mm",
+                provenance: { source: "user-entered" },
+              },
+              y: {
+                value: 2,
+                unit: "mm",
+                provenance: { source: "user-entered" },
+              },
+            },
+          ],
+          metadata: {},
+        },
+      ],
+    };
+
+    const migrated = migrateProjectDocument(legacy) as {
+      physicalRoutes: { pattern: unknown; waypoints?: unknown }[];
+    };
+
+    expect(migrated.physicalRoutes[0]!.pattern).toEqual({ kind: "straight" });
+    expect(migrated.physicalRoutes[1]!.pattern).toMatchObject({
+      kind: "manual",
+      waypoints: expect.any(Array),
+    });
+    expect("waypoints" in migrated.physicalRoutes[0]!).toBe(false);
+  });
+
+  it("migrates v0.3 serpentine routes to explicit auto core placement", () => {
+    const input = parseProject(loadFixture("current-version-roundtrip.json"));
+    const legacy = {
+      ...input,
+      schemaVersion: "0.3.0",
+      physicalRoutes: [
+        {
+          id: "route_serpentine",
+          connectionId: "connection_serpentine",
+          layerId: "layer_roundtrip",
+          pattern: {
+            kind: "serpentine",
+            turnCount: 4,
+            pitch: {
+              value: 0.75,
+              unit: "mm",
+              provenance: { source: "user-entered" },
+            },
+            axis: "horizontal",
+            sizing: {
+              mode: "explicit",
+              amplitude: {
+                value: 8,
+                unit: "mm",
+                provenance: { source: "user-entered" },
+              },
+            },
+          },
+          width: {
+            value: 0.5,
+            unit: "mm",
+            provenance: { source: "user-entered" },
+          },
+          depth: {
+            value: 0.2,
+            unit: "mm",
+            provenance: { source: "user-entered" },
+          },
+          bendRadius: {
+            value: 0.3,
+            unit: "mm",
+            provenance: { source: "user-entered" },
+          },
+          metadata: {},
+        },
+      ],
+    };
+
+    const migrated = migrateProjectDocument(legacy) as {
+      schemaVersion: string;
+      physicalRoutes: { pattern: unknown }[];
+    };
+
+    expect(migrated.schemaVersion).toBe("0.4.0");
+    expect(migrated.physicalRoutes[0]!.pattern).toMatchObject({
+      kind: "serpentine",
+      placement: { mode: "auto" },
+    });
   });
 
   it("rejects future and unsupported old versions clearly", () => {

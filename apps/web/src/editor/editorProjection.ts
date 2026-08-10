@@ -2,8 +2,10 @@ import type { Edge, Node } from "@xyflow/react";
 import {
   deriveComponentFootprint,
   deriveFullRoutePolyline,
+  deriveRouteGeometry,
   mmToDisplay,
   pointMmToDisplay,
+  type CenterlinePrimitive,
 } from "geometry-core";
 import type { Component, Connection, Port, Project } from "project-model";
 import {
@@ -15,6 +17,7 @@ import {
 } from "microfluidic-components";
 
 import { createHandleId } from "./handleIds";
+import { resolveConnectionRouteContext } from "./connectionRouteSelectors";
 import type {
   EditorEdgeData,
   EditorNodeData,
@@ -44,9 +47,6 @@ export function deriveEditorProjection(
   const componentsById = new Map(project.components.map((item) => [item.id, item]));
   const portsById = new Map(project.ports.map((item) => [item.id, item]));
   const connectionsById = new Map(project.connections.map((item) => [item.id, item]));
-  const routesByConnectionId = new Map(
-    project.physicalRoutes.map((route) => [route.connectionId, route]),
-  );
   const layersById = new Map(project.layers.map((item) => [item.id, item]));
   const lanesById = new Map(project.lanes.map((item) => [item.id, item]));
   const connectionCountsByPortId = indexConnectionCounts(project.connections);
@@ -144,11 +144,19 @@ export function deriveEditorProjection(
         `Missing connection component ${connection.id}`,
       );
     }
-    const route = routesByConnectionId.get(connection.id);
+    const routeContext = resolveConnectionRouteContext(project, connection.id);
+    const route =
+      routeContext.physicalRoute.status === "unique"
+        ? routeContext.physicalRoute.route
+        : null;
     let routePoints: { x: number; y: number }[] = [];
+    let routePath = "";
     if (route) {
       try {
+        const routeGeometry =
+          routeContext.geometry ?? deriveRouteGeometry(project, route);
         routePoints = deriveFullRoutePolyline(project, route).map(pointMmToDisplay);
+        routePath = primitivesToSvgPath(routeGeometry.primitives);
       } catch {
         routePoints = [];
       }
@@ -158,12 +166,16 @@ export function deriveEditorProjection(
       type: "physicalRoute",
       source: sourcePort.componentId,
       target: targetPort.componentId,
+      selected: transient.selectedConnectionIds.includes(connection.id),
+      interactionWidth: 24,
+      ariaLabel: `Connection ${connection.id}`,
       sourceHandle: createHandleId(connection.sourcePortId, "source"),
       targetHandle: createHandleId(connection.targetPortId, "target"),
       data: {
         connectionId: connection.id,
         selected: transient.selectedConnectionIds.includes(connection.id),
         routePoints,
+        routePath,
         routeWidthPx: route?.width ? Math.max(2, mmToDisplay(route.width.value)) : 2,
         physicalReady: Boolean(route?.width && route.depth),
       },
@@ -178,6 +190,36 @@ export function deriveEditorProjection(
     connectionsById,
     connectionCountsByPortId,
   };
+}
+
+function primitivesToSvgPath(primitives: readonly CenterlinePrimitive[]): string {
+  if (primitives.length === 0) {
+    return "";
+  }
+  const commands = [
+    `M ${mmToDisplay(primitives[0]!.start.x)} ${mmToDisplay(primitives[0]!.start.y)}`,
+  ];
+  for (const primitive of primitives) {
+    if (primitive.kind === "line") {
+      commands.push(
+        `L ${mmToDisplay(primitive.end.x)} ${mmToDisplay(primitive.end.y)}`,
+      );
+      continue;
+    }
+    commands.push(
+      [
+        "A",
+        mmToDisplay(primitive.radius),
+        mmToDisplay(primitive.radius),
+        0,
+        Math.abs(primitive.sweepAngle) > Math.PI ? 1 : 0,
+        primitive.clockwise ? 1 : 0,
+        mmToDisplay(primitive.end.x),
+        mmToDisplay(primitive.end.y),
+      ].join(" "),
+    );
+  }
+  return commands.join(" ");
 }
 
 function layoutPortHandles(ports: EditorNodeData["ports"]): EditorNodeData["ports"] {

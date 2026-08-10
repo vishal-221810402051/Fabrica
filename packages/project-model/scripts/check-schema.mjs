@@ -8,12 +8,13 @@ import { z } from "zod";
 
 const require = createRequire(import.meta.url);
 const {
+  CURRENT_SCHEMA_VERSION,
   PROJECT_JSON_SCHEMA_ID,
   PROJECT_JSON_SCHEMA_TITLE,
   ProjectSchema,
 } = require("../dist/index.js");
 
-const expectedPath = resolve("schema/project.v0.2.0.schema.json");
+const expectedPath = resolve(`schema/project.v${CURRENT_SCHEMA_VERSION}.schema.json`);
 const temporaryPath = resolve(
   tmpdir(),
   `fabricgamma-project-schema-${process.pid}.json`,
