@@ -11,6 +11,7 @@ import {
   DEFINITION_IDENTITY_EXTENSION,
   getComponentDefinition,
   getComponentParameterValues,
+  type ComponentDefinition,
   type DefinitionIdentity,
   type ParameterDefinition,
   type ParameterValue,
@@ -1163,9 +1164,7 @@ function LaneEditor(props: {
 }
 
 function ComponentEditor(props: { project: Project; component: Component }) {
-  const identity = props.component.extensions[
-    DEFINITION_IDENTITY_EXTENSION
-  ] as unknown as DefinitionIdentity;
+  const identity = readComponentDefinitionIdentity(props.component);
   const definition = useMemo(
     () => getComponentDefinition(identity.definitionKey),
     [identity.definitionKey],
@@ -1181,7 +1180,17 @@ function ComponentEditor(props: { project: Project; component: Component }) {
     (port) => port.componentId === props.component.id,
   );
   const values = getComponentParameterValues(props.component);
-  const volumePreview = componentVolumePreview(values);
+  const hasExplicitJunctionDimensions = isPhysicalSplitterMergerJunction(
+    props.component,
+    identity.definitionKey,
+  );
+  const genericParameters = hasExplicitJunctionDimensions
+    ? definition.parameters.filter(
+        (parameter) => !isJunctionDimensionKey(parameter.key),
+      )
+    : definition.parameters;
+  const volumePreview =
+    props.component.kind === "junction" ? null : componentVolumePreview(values);
   return (
     <>
       <FormSection
@@ -1257,19 +1266,28 @@ function ComponentEditor(props: { project: Project; component: Component }) {
         </label>
         <ReadOnly label="Lane policy" value={definition.lanePolicy} />
       </FormSection>
-      <section className="property-group">
-        <h3>Parameters</h3>
-        {definition.parameters.map((parameter) => (
-          <ParameterInput
-            key={parameter.key}
-            component={props.component}
-            parameter={parameter}
-            value={values[parameter.key]}
-            project={props.project}
-          />
-        ))}
-        {volumePreview ? <p className="muted">{volumePreview}</p> : null}
-      </section>
+      {hasExplicitJunctionDimensions ? (
+        <JunctionPhysicalDimensionsEditor
+          project={props.project}
+          component={props.component}
+          definition={definition}
+        />
+      ) : null}
+      {genericParameters.length > 0 || volumePreview ? (
+        <section className="property-group">
+          <h3>Parameters</h3>
+          {genericParameters.map((parameter) => (
+            <ParameterInput
+              key={parameter.key}
+              component={props.component}
+              parameter={parameter}
+              value={values[parameter.key]}
+              project={props.project}
+            />
+          ))}
+          {volumePreview ? <p className="muted">{volumePreview}</p> : null}
+        </section>
+      ) : null}
       <section className="property-group">
         <h3>Ports</h3>
         {ports.map((port) => (
@@ -1277,6 +1295,118 @@ function ComponentEditor(props: { project: Project; component: Component }) {
         ))}
       </section>
     </>
+  );
+}
+
+function JunctionPhysicalDimensionsEditor(props: {
+  project: Project;
+  component: Component;
+  definition: ComponentDefinition;
+}) {
+  const values = junctionDimensionValues(props.component);
+  const defaults = junctionDimensionDefaults(props.definition);
+  const [width, setWidth] = useState(() =>
+    quantityDraftFromCanonical(
+      requiredJunctionDimension(values.width, defaults.width),
+      "mm",
+      "length",
+    ),
+  );
+  const [height, setHeight] = useState(() =>
+    quantityDraftFromCanonical(
+      requiredJunctionDimension(values.height, defaults.height),
+      "mm",
+      "length",
+    ),
+  );
+  const [depth, setDepth] = useState(() =>
+    quantityDraftFromCanonical(
+      requiredJunctionDimension(values.depth, defaults.depth),
+      "mm",
+      "length",
+    ),
+  );
+  const [errors, setErrors] = useState<FieldError[]>([]);
+
+  function applyDimensions(
+    nextValues: {
+      width: ParameterValue;
+      height: ParameterValue;
+      depth: ParameterValue;
+    },
+    label: string,
+    provenanceSource?: ProvenanceSource,
+  ) {
+    applyProjectUpdate(setErrors, label, () =>
+      updateComponentParameterValues(props.project, {
+        componentId: props.component.id as ComponentId,
+        updates: nextValues,
+        ...(provenanceSource
+          ? {
+              provenanceOverrides: {
+                width: provenanceSource,
+                height: provenanceSource,
+                depth: provenanceSource,
+              },
+            }
+          : {}),
+      }),
+    );
+  }
+
+  function resetDrafts() {
+    setWidth(quantityDraftFromCanonical(defaults.width, "mm", "length"));
+    setHeight(quantityDraftFromCanonical(defaults.height, "mm", "length"));
+    setDepth(quantityDraftFromCanonical(defaults.depth, "mm", "length"));
+  }
+
+  return (
+    <FormSection
+      title="Physical dimensions"
+      errors={errors}
+      onApply={() =>
+        applyDimensions(
+          {
+            width: requiredQuantity(width, "length", "Width"),
+            height: requiredQuantity(height, "length", "Height"),
+            depth: requiredQuantity(depth, "length", "Depth"),
+          },
+          `Update ${props.definition.displayName} dimensions`,
+        )
+      }
+      reset={() => {
+        resetDrafts();
+        applyDimensions(
+          { width: defaults.width, height: defaults.height, depth: defaults.depth },
+          `Reset ${props.definition.displayName} dimensions`,
+          "system-default",
+        );
+      }}
+      resetLabel="Reset dimensions"
+    >
+      <QuantityField
+        label="Width"
+        draft={width}
+        dimension="length"
+        required
+        onChange={setWidth}
+      />
+      <QuantityField
+        label="Height"
+        draft={height}
+        dimension="length"
+        required
+        onChange={setHeight}
+      />
+      <QuantityField
+        label="Depth"
+        draft={depth}
+        dimension="length"
+        required
+        onChange={setDepth}
+      />
+      <p className="muted">Instance-owned junction footprint.</p>
+    </FormSection>
   );
 }
 
@@ -1654,6 +1784,7 @@ function FormSection(props: {
   errors: FieldError[];
   onApply: () => void;
   reset?: () => void;
+  resetLabel?: string;
   disabled?: boolean;
   children: ReactNode;
 }) {
@@ -1672,7 +1803,7 @@ function FormSection(props: {
       </button>
       {props.reset ? (
         <button type="button" onClick={props.reset}>
-          Reset
+          {props.resetLabel ?? "Reset"}
         </button>
       ) : null}
     </section>
@@ -2172,6 +2303,79 @@ function parameterDraft(
     text: value === undefined || value === null ? "" : String(value),
     unit: "mm" as Unit,
   };
+}
+
+function readComponentDefinitionIdentity(component: Component): DefinitionIdentity {
+  const identity = component.extensions[DEFINITION_IDENTITY_EXTENSION] as unknown as
+    DefinitionIdentity | undefined;
+  if (!identity?.definitionKey) {
+    throw new Error(`Component ${component.id} has no registry identity`);
+  }
+  return identity;
+}
+
+function isPhysicalSplitterMergerJunction(
+  component: Component,
+  definitionKey: string,
+): boolean {
+  return (
+    component.kind === "junction" &&
+    (definitionKey === "junction.splitter" || definitionKey === "junction.merger") &&
+    Boolean(component.junction.dimensions?.width) &&
+    Boolean(component.junction.dimensions?.height) &&
+    Boolean(component.junction.dimensions?.depth)
+  );
+}
+
+function isJunctionDimensionKey(key: string): boolean {
+  return key === "width" || key === "height" || key === "depth";
+}
+
+function junctionDimensionDefaults(definition: ComponentDefinition): {
+  width: LengthQuantity;
+  height: LengthQuantity;
+  depth: LengthQuantity;
+} {
+  const footprint = definition.physicalGeometry?.footprint;
+  if (!footprint?.width || !footprint.height || !footprint.depth) {
+    throw new Error(`Missing physical defaults for ${definition.key}`);
+  }
+  return {
+    width: requiredJunctionDimension(footprint.width, footprint.width),
+    height: requiredJunctionDimension(footprint.height, footprint.height),
+    depth: requiredJunctionDimension(footprint.depth, footprint.depth),
+  };
+}
+
+function junctionDimensionValues(component: Component): {
+  width: ParameterValue | undefined;
+  height: ParameterValue | undefined;
+  depth: ParameterValue | undefined;
+} {
+  return component.kind === "junction"
+    ? {
+        width: component.junction.dimensions?.width,
+        height: component.junction.dimensions?.height,
+        depth: component.junction.dimensions?.depth,
+      }
+    : { width: undefined, height: undefined, depth: undefined };
+}
+
+function requiredJunctionDimension(
+  value: ParameterValue | undefined,
+  fallback: ParameterValue,
+): LengthQuantity {
+  const quantity = value ?? fallback;
+  if (!isLengthQuantity(quantity)) {
+    throw new Error("Junction dimension must be a length quantity");
+  }
+  return quantity;
+}
+
+function isLengthQuantity(value: ParameterValue): value is LengthQuantity {
+  return (
+    typeof value === "object" && value !== null && "value" in value && "unit" in value
+  );
 }
 
 function componentVolumePreview(values: Record<string, ParameterValue>): string | null {

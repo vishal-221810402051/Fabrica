@@ -15,7 +15,7 @@ describe("project store", () => {
     store.getState().createNewProject();
     const initial = store.getState();
 
-    expect(initial.project?.schemaVersion).toBe("0.4.0");
+    expect(initial.project?.schemaVersion).toBe("0.5.0");
     expect(isLocallySaved(initial)).toBe(false);
 
     store.getState().setSelection(["component_one"]);

@@ -168,6 +168,59 @@ describe("component instance APIs", () => {
     expect(updatedValve.extensions[DEFINITION_PARAMETERS_EXTENSION]).toBeUndefined();
   });
 
+  it("edits and resets splitter and merger dimensions as first-class instance values", () => {
+    const splitter = createComponentFromDefinition({
+      definitionKey: "junction.splitter",
+      layerId,
+      position,
+    });
+    const merger = createComponentFromDefinition({
+      definitionKey: "junction.merger",
+      layerId,
+      position,
+    });
+
+    const editedSplitter = updateComponentParameters({
+      component: splitter.component,
+      updates: {
+        width: { value: 3000, unit: "um", provenance: { source: "imported" } },
+        height: { value: 1.5, unit: "mm", provenance: { source: "user-entered" } },
+        depth: { value: 0.25, unit: "mm", provenance: { source: "user-entered" } },
+      },
+    }).component;
+    const resetMerger = updateComponentParameters({
+      component: updateComponentParameters({
+        component: merger.component,
+        updates: { width: { value: 3, unit: "mm" } },
+      }).component,
+      updates: {
+        width: { value: 2, unit: "mm", provenance: { source: "system-default" } },
+      },
+      provenanceOverrides: { width: "system-default" },
+    }).component;
+
+    expect(getComponentParameterValues(editedSplitter).width).toEqual({
+      value: 3,
+      unit: "mm",
+      provenance: { source: "user-entered" },
+    });
+    expect(editedSplitter.kind).toBe("junction");
+    if (editedSplitter.kind === "junction") {
+      expect(editedSplitter.junction.dimensions).toMatchObject({
+        width: { value: 3, unit: "mm" },
+        height: { value: 1.5, unit: "mm" },
+        depth: { value: 0.25, unit: "mm" },
+      });
+    }
+    expect(resetMerger.kind).toBe("junction");
+    if (resetMerger.kind === "junction") {
+      expect(resetMerger.junction.dimensions?.width.provenance.source).toBe(
+        "system-default",
+      );
+      expect(resetMerger.junction.dimensions?.width.value).toBe(2);
+    }
+  });
+
   it("supports registry reset provenance and optional first-class clearing", () => {
     const result = createComponentFromDefinition({
       definitionKey: "chamber.reaction",

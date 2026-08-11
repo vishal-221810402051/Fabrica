@@ -6,7 +6,7 @@ from typing import Any, cast
 
 from fabrica_api.project_model.errors import FutureVersionError, UnsupportedVersionError
 
-CURRENT_SCHEMA_VERSION = "0.4.0"
+CURRENT_SCHEMA_VERSION = "0.5.0"
 
 MigrationFunction = Callable[[Any], Any]
 migration_registry: dict[str, MigrationFunction] = {}
@@ -53,9 +53,26 @@ def _migrate_0_3_0_to_0_4_0(input_value: Any) -> Any:
     return _normalize_lane_membership(project_document)
 
 
+def _migrate_0_4_0_to_0_5_0(input_value: Any) -> Any:
+    if not isinstance(input_value, dict):
+        return input_value
+    project_document = cast(dict[str, Any], input_value)
+    project_document["schemaVersion"] = "0.5.0"
+    components = project_document.get("components")
+    if isinstance(components, list):
+        project_document["components"] = [
+            _materialize_historical_junction_dimensions(component)
+            for component in cast(list[Any], components)
+        ]
+    else:
+        project_document["components"] = []
+    return _normalize_lane_membership(project_document)
+
+
 migration_registry["0.1.0"] = _migrate_0_1_0_to_0_2_0
 migration_registry["0.2.0"] = _migrate_0_2_0_to_0_3_0
 migration_registry["0.3.0"] = _migrate_0_3_0_to_0_4_0
+migration_registry["0.4.0"] = _migrate_0_4_0_to_0_5_0
 
 
 def compare_schema_versions(left: str, right: str) -> int:
@@ -132,6 +149,46 @@ def _migrate_serpentine_placement(route: Any) -> Any:
         migrated_pattern["placement"] = {"mode": "auto"}
         migrated["pattern"] = migrated_pattern
     return migrated
+
+
+def _materialize_historical_junction_dimensions(component_value: Any) -> Any:
+    if not isinstance(component_value, dict):
+        return component_value
+    raw_component = cast(JsonObject, component_value)
+    if raw_component.get("kind") != "junction":
+        return raw_component
+    component: JsonObject = dict(raw_component)
+    junction_value = component.get("junction")
+    if not isinstance(junction_value, dict):
+        return component
+    junction: JsonObject = dict(cast(JsonObject, junction_value))
+    if "dimensions" in junction:
+        return component
+    if junction.get("category") not in {"splitter", "merger"}:
+        return component
+    component["junction"] = {
+        **junction,
+        "dimensions": {
+            "width": _historical_length(2),
+            "height": _historical_length(1),
+            "depth": _historical_length(0.2),
+        },
+    }
+    return component
+
+
+def _historical_length(value: float) -> JsonObject:
+    return {
+        "value": value,
+        "unit": "mm",
+        "provenance": {
+            "source": "system-default",
+            "note": (
+                "Materialized during schema 0.4.0 to 0.5.0 migration to "
+                "preserve historical junction geometry."
+            ),
+        },
+    }
 
 
 def _normalize_lane_membership(project_document: dict[str, Any]) -> dict[str, Any]:

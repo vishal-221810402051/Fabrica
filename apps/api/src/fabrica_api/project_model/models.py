@@ -360,6 +360,7 @@ Channel = Annotated[
 
 class Junction(StrictProjectModel):
     category: Literal["y", "t", "splitter", "merger", "manifold", "generic"]
+    dimensions: Annotated[BoxDimensions | None, BeforeValidator(reject_null)] = None
 
 
 class Chamber(StrictProjectModel):
@@ -502,7 +503,7 @@ class ExportConfiguration(StrictProjectModel):
 
 
 class Project(StrictProjectModel):
-    schemaVersion: Literal["0.4.0"]
+    schemaVersion: Literal["0.5.0"]
     id: ProjectId
     name: NonEmptyString
     createdAt: IsoString

@@ -484,6 +484,7 @@ select {
   min-width: 24px;
   overflow: hidden;
   padding: 6px;
+  position: relative;
 }
 
 .micro-node-selected {
@@ -544,6 +545,58 @@ select {
 
 .micro-node-physical-pending {
   border-style: dashed;
+}
+
+.micro-node-junction {
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  padding: 0;
+}
+
+.micro-node-junction header {
+  background: rgb(255 255 255 / 88%);
+  border: 1px solid rgb(140 163 189 / 55%);
+  border-radius: 4px;
+  left: 50%;
+  max-width: 128px;
+  padding: 2px 4px;
+  pointer-events: none;
+  position: absolute;
+  top: -30px;
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
+.micro-node-junction .node-badges {
+  display: none;
+}
+
+.junction-topology {
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  position: absolute;
+}
+
+.junction-footprint-envelope {
+  fill: rgb(255 255 255 / 46%);
+  stroke: rgb(51 65 85 / 42%);
+  stroke-dasharray: 4 3;
+  stroke-width: 1;
+}
+
+.junction-body-polygon {
+  fill: rgb(20 184 166 / 42%);
+  stroke: #0f766e;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.micro-node-selected .junction-body-polygon {
+  fill: rgb(20 184 166 / 56%);
+  stroke: #0f766e;
 }
 
 .chip-boundary-node {
@@ -662,6 +715,7 @@ select {
   border: 2px solid #ffffff;
   height: 12px;
   width: 12px;
+  z-index: 2;
 }
 
 .port-output {

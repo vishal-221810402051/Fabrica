@@ -40,7 +40,7 @@ def load_fixture(name: str) -> dict[str, Any]:
 def test_python_project_model_accepts_valid_fixtures(fixture_name: str) -> None:
     project = parse_project(load_fixture(fixture_name))
 
-    assert project.schemaVersion == "0.4.0"
+    assert project.schemaVersion == "0.5.0"
     assert project.physicalRoutes == []
 
 
@@ -114,7 +114,7 @@ def test_python_project_model_migrates_0_1_routes() -> None:
     project = parse_project(load_fixture("minimal-valid-project.json"))
     serialized = serialize_project(project)
 
-    assert serialized["schemaVersion"] == "0.4.0"
+    assert serialized["schemaVersion"] == "0.5.0"
     assert serialized["physicalRoutes"] == []
 
 
@@ -165,5 +165,5 @@ def test_python_project_model_migrates_serpentine_placement() -> None:
 
     migrated = migrate_project_document(payload)
 
-    assert migrated["schemaVersion"] == "0.4.0"
+    assert migrated["schemaVersion"] == "0.5.0"
     assert migrated["physicalRoutes"][0]["pattern"]["placement"] == {"mode": "auto"}

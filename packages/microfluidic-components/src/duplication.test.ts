@@ -55,4 +55,31 @@ describe("component duplication", () => {
       }),
     ).toThrow(ComponentDuplicationError);
   });
+
+  it("duplicates custom merger instance dimensions without reading registry defaults", () => {
+    const source = createComponentFromDefinition({
+      definitionKey: "junction.merger",
+      layerId: "layer_flow",
+      position: { x: 1, y: 2 },
+      parameterOverrides: {
+        width: { value: 3, unit: "mm", provenance: { source: "user-entered" } },
+        height: { value: 1.5, unit: "mm", provenance: { source: "user-entered" } },
+        depth: { value: 0.25, unit: "mm", provenance: { source: "user-entered" } },
+      },
+    });
+
+    const duplicate = duplicateComponentInstance({
+      sourceComponent: source.component,
+      sourcePorts: source.ports,
+    });
+
+    expect(duplicate.duplicatedComponent.kind).toBe("junction");
+    if (duplicate.duplicatedComponent.kind === "junction") {
+      expect(duplicate.duplicatedComponent.junction.dimensions).toMatchObject({
+        width: { value: 3, unit: "mm" },
+        height: { value: 1.5, unit: "mm" },
+        depth: { value: 0.25, unit: "mm" },
+      });
+    }
+  });
 });

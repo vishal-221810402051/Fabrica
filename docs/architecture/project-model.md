@@ -1,14 +1,14 @@
 # Project Model
 
-Phase 8C-A defines the persisted Fabricgamma project model as schema version
-`0.4.0`.
+Phase 10A defines the persisted Fabricgamma project model as schema version
+`0.5.0`.
 
 ## Authority
 
 `packages/project-model` is the TypeScript source of truth for the persisted
 project schema. It owns:
 
-- Schema version `0.4.0`.
+- Schema version `0.5.0`.
 - Stable identifier formats.
 - Project, chip, layer, lane, component, port, connection, physical-route,
   material, fluid, manufacturing-process, validation-result, and
@@ -27,8 +27,11 @@ JSON Schema.
 The generated interchange schema is:
 
 ```text
-packages/project-model/schema/project.v0.4.0.schema.json
+packages/project-model/schema/project.v0.5.0.schema.json
 ```
+
+Prior generated schema artifacts are retained for compatibility review and
+migration history.
 
 It is produced from the Zod 4 model with `z.toJSONSchema(...)` and targets JSON
 Schema Draft 2020-12. The check command verifies that the generated output
@@ -126,6 +129,37 @@ initializes `physicalRoutes` to an empty array. Migration from `0.2.0` to
 routes to `manual`, preserving all other route properties. Migration from
 `0.3.0` to `0.4.0` adds `{ mode: "auto" }` placement to existing serpentine
 route patterns and leaves straight/manual routes semantically unchanged.
+Migration from `0.4.0` to `0.5.0` materializes historical splitter and merger
+physical dimensions as first-class `junction.dimensions` values. Existing
+splitter and merger projects therefore keep the same `2 x 1 x 0.2 mm`
+footprint, port geometry, and route endpoint behavior after migration.
+
+## Component Physical Dimensions
+
+Registry component definitions seed physical defaults for new insertion and
+explicit Reset commands. After insertion, persisted component instance
+dimensions are the authoritative physical truth. A registry-default change must
+not silently resize an existing saved project.
+
+Ordinary rectangular physical components such as chambers, reservoirs, debris
+filters, bubble traps, passive mixers, generic custom components, and generic
+external interfaces use the normalized default `2 x 2 x 0.2 mm` where their
+current schema semantics include width, height, and depth.
+
+`junction.splitter` and `junction.merger` remain specialized. Their default
+physical footprint is `2 x 1 x 0.2 mm`, and Phase 10A persists those values on
+the Project instance under `junction.dimensions`. Legacy junctions without a
+historical physical footprint, valves, planar sensor/optical interfaces, and
+shape-specific channels are not normalized into this default.
+
+Splitter/merger port interface sizes are derived, not persisted. The connected
+PhysicalRoute for each individual port supplies that interface's width and depth
+when available; unconnected ports use preview-only fallbacks. Editing a channel
+route width or depth therefore regenerates the unified junction preview body
+without recreating components, ports, connections, or routes. If a connected
+route depth exceeds the junction instance depth, validation reports an
+engineering incompatibility instead of silently resizing the component or
+clipping the route.
 
 ## Lane Membership
 

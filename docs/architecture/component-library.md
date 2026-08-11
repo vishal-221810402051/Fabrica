@@ -26,10 +26,10 @@ name, persisted kind, category, parameters, port templates, policies,
 geometry hints, optional physical geometry metadata, manufacturing metadata,
 and icon descriptor.
 
-Geometry hints remain schematic UI hints. They are not CAD authority. Phase 8A
-adds optional `physicalGeometry` metadata for definition families whose
-physical footprint is versioned by the registry instead of stored on the
-Project component instance.
+Geometry hints remain schematic UI hints. They are not CAD authority. Registry
+`physicalGeometry` metadata seeds new Project instances and explicit Reset
+commands. Persisted instance dimensions are the physical authority after
+insertion.
 
 A component instance is a project-model `Component` created by the factory.
 Instances persist stable definition identity under
@@ -120,11 +120,28 @@ defaults are used only for the physical geometry foundation. The legacy
 `junction.manifold` is not promoted into the preferred physical branching
 mechanism.
 
+Phase 10A makes splitter and merger footprints instance-owned. New splitter and
+merger insertion persists `junction.dimensions` with the specialized default
+`2 x 1 x 0.2 mm`; Reset reads the current registry default explicitly. Ordinary
+rectangular components keep the normalized `2 x 2 x 0.2 mm` default where their
+schema already supports width, height, and depth. Valves, shape-specific
+channels, planar sensor/optical interfaces, and legacy junctions are not
+silently normalized.
+
+Splitter and merger physical port interfaces adapt to the PhysicalRoute
+connected to each individual port. Port position and orientation are derived
+from the component instance footprint and registry physical port anchor; local
+preview throat width and depth are derived from the connected route when one is
+available. Unconnected ports use only non-persisted preview fallbacks. The
+library does not persist `port.width`, `port.depth`, or a second junction-port
+size field.
+
 Reservoir and chamber footprints are derived from their first-class Project
 dimensions. Channel footprints are derived from their channel cross-section
-dimensions. Components without first-class dimensions or registry physical
-metadata are not physical-layout-ready and must not receive fabricated
-footprints.
+dimensions. Splitter and merger footprints are derived from their first-class
+Project junction dimensions. Components without first-class dimensions or
+approved legacy registry physical metadata are not physical-layout-ready and
+must not receive fabricated footprints.
 
 ## Layer And Lane Policies
 

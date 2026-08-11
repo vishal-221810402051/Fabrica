@@ -1,5 +1,5 @@
 import { fluidPort } from "../ports";
-import { quantity } from "../parameters";
+import { lengthParameter, quantity } from "../parameters";
 import type { ComponentDefinition } from "../types";
 import { defineComponent } from "./common";
 
@@ -11,6 +11,12 @@ const junctionPhysicalGeometry = {
     depth: quantity(0.2, "mm"),
   },
 } as const;
+
+const splitterMergerDimensionParameters = [
+  lengthParameter("width", "Width", 2),
+  lengthParameter("height", "Height", 1),
+  lengthParameter("depth", "Depth", 0.2),
+] as const;
 
 function physicalPort(
   key: string,
@@ -67,6 +73,7 @@ export const junctionDefinitions: readonly ComponentDefinition[] = [
       physicalPort("out-a", "Output A", "output", { x: 1, y: 0.25 }),
       physicalPort("out-b", "Output B", "output", { x: 1, y: 0.75 }),
     ],
+    parameters: splitterMergerDimensionParameters,
     physicalGeometry: junctionPhysicalGeometry,
     icon: "junction",
     fixedProperties: { category: "splitter" },
@@ -83,6 +90,7 @@ export const junctionDefinitions: readonly ComponentDefinition[] = [
       physicalPort("in-b", "Input B", "input", { x: 0, y: 0.75 }),
       physicalPort("out", "Output", "output", { x: 1, y: 0.5 }),
     ],
+    parameters: splitterMergerDimensionParameters,
     physicalGeometry: junctionPhysicalGeometry,
     icon: "junction",
     fixedProperties: { category: "merger" },

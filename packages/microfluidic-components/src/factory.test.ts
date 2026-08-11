@@ -70,6 +70,43 @@ describe("component factory", () => {
     ).not.toHaveProperty("width");
   });
 
+  it("materializes ordinary and specialized junction dimensions into project instances", () => {
+    const chamber = createComponentFromDefinition({
+      definitionKey: "chamber.reaction",
+      layerId,
+      position,
+    }).component;
+    const splitter = createComponentFromDefinition({
+      definitionKey: "junction.splitter",
+      layerId,
+      position,
+    }).component;
+    const merger = createComponentFromDefinition({
+      definitionKey: "junction.merger",
+      layerId,
+      position,
+    }).component;
+
+    expect(chamber.kind).toBe("chamber");
+    if (chamber.kind === "chamber") {
+      expect(chamber.chamber.dimensions).toMatchObject({
+        width: { value: 2, unit: "mm" },
+        height: { value: 2, unit: "mm" },
+        depth: { value: 0.2, unit: "mm" },
+      });
+    }
+    for (const component of [splitter, merger]) {
+      expect(component.kind).toBe("junction");
+      if (component.kind === "junction") {
+        expect(component.junction.dimensions).toMatchObject({
+          width: { value: 2, unit: "mm" },
+          height: { value: 1, unit: "mm" },
+          depth: { value: 0.2, unit: "mm" },
+        });
+      }
+    }
+  });
+
   it("rejects unknown overrides, invalid units, and lane policy violations", () => {
     expect(() =>
       createComponentFromDefinition({

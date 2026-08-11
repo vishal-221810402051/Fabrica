@@ -1,6 +1,6 @@
 export { ProjectSchema, type Project } from "./entities/project";
 
 export const PROJECT_JSON_SCHEMA_ID =
-  "https://fabricgamma.local/schema/project.v0.4.0.schema.json";
+  "https://fabricgamma.local/schema/project.v0.5.0.schema.json";
 
-export const PROJECT_JSON_SCHEMA_TITLE = "Fabricgamma Project Model v0.4.0";
+export const PROJECT_JSON_SCHEMA_TITLE = "Fabricgamma Project Model v0.5.0";

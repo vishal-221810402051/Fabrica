@@ -151,7 +151,9 @@ describe("serialization and versioning", () => {
     const input = loadFixture("minimal-valid-project.json");
     const migrated = migrateProjectDocument(input);
 
-    expect((migrated as { schemaVersion: string }).schemaVersion).toBe("0.4.0");
+    expect((migrated as { schemaVersion: string }).schemaVersion).toBe(
+      CURRENT_SCHEMA_VERSION,
+    );
     expect((migrated as { physicalRoutes: unknown[] }).physicalRoutes).toEqual([]);
     expect((migrated as { id: string }).id).toBe("project_minimal");
   });
@@ -257,11 +259,80 @@ describe("serialization and versioning", () => {
       physicalRoutes: { pattern: unknown }[];
     };
 
-    expect(migrated.schemaVersion).toBe("0.4.0");
+    expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(migrated.physicalRoutes[0]!.pattern).toMatchObject({
       kind: "serpentine",
       placement: { mode: "auto" },
     });
+  });
+
+  it("migrates v0.4 splitter and merger dimensions without inventing other junction footprints", () => {
+    const legacy = {
+      ...parseProject(loadFixture("minimal-valid-project.json")),
+      schemaVersion: "0.4.0",
+      components: [
+        legacyJunctionComponent("component_splitter", "splitter"),
+        legacyJunctionComponent("component_merger", "merger"),
+        legacyJunctionComponent("component_y", "y"),
+      ],
+    };
+
+    const migrated = parseProject(legacy);
+
+    expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    const splitter = migrated.components.find(
+      (component) => component.id === "component_splitter",
+    );
+    const merger = migrated.components.find(
+      (component) => component.id === "component_merger",
+    );
+    const y = migrated.components.find((component) => component.id === "component_y");
+    expect(splitter?.kind).toBe("junction");
+    expect(merger?.kind).toBe("junction");
+    if (splitter?.kind === "junction" && merger?.kind === "junction") {
+      expect(splitter.junction.dimensions).toMatchObject({
+        width: { value: 2, unit: "mm" },
+        height: { value: 1, unit: "mm" },
+        depth: { value: 0.2, unit: "mm" },
+      });
+      expect(merger.junction.dimensions).toMatchObject({
+        width: { value: 2, unit: "mm" },
+        height: { value: 1, unit: "mm" },
+        depth: { value: 0.2, unit: "mm" },
+      });
+    }
+    expect(y?.kind).toBe("junction");
+    if (y?.kind === "junction") {
+      expect(y.junction.dimensions).toBeUndefined();
+    }
+  });
+
+  it("preserves custom schema 0.5 junction dimensions during parse", () => {
+    const current = {
+      ...parseProject(loadFixture("minimal-valid-project.json")),
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      components: [
+        {
+          ...legacyJunctionComponent("component_custom_merger", "merger"),
+          junction: {
+            category: "merger",
+            dimensions: boxDimensions(3, 2, 0.25),
+          },
+        },
+      ],
+    };
+
+    const parsed = parseProject(current);
+    const merger = parsed.components[0];
+
+    expect(merger?.kind).toBe("junction");
+    if (merger?.kind === "junction") {
+      expect(merger.junction.dimensions).toMatchObject({
+        width: { value: 3, unit: "mm" },
+        height: { value: 2, unit: "mm" },
+        depth: { value: 0.25, unit: "mm" },
+      });
+    }
   });
 
   it("rejects future and unsupported old versions clearly", () => {
@@ -282,6 +353,38 @@ describe("serialization and versioning", () => {
     });
   });
 });
+
+function legacyJunctionComponent(id: string, category: "y" | "splitter" | "merger") {
+  return {
+    id,
+    kind: "junction",
+    name: category,
+    layerId: "layer_control",
+    position: {
+      x: { value: 1, unit: "mm", provenance: { source: "user-entered" } },
+      y: { value: 1, unit: "mm", provenance: { source: "user-entered" } },
+    },
+    rotation: { value: 0, unit: "rad", provenance: { source: "user-entered" } },
+    portIds: [],
+    metadata: {},
+    extensions: {
+      "fabricgamma.component-definition": {
+        definitionKey: `junction.${category}`,
+        registryVersion: "1.0.0",
+        definitionRevision: 1,
+      },
+    },
+    junction: { category },
+  };
+}
+
+function boxDimensions(width: number, height: number, depth: number) {
+  return {
+    width: { value: width, unit: "mm", provenance: { source: "user-entered" } },
+    height: { value: height, unit: "mm", provenance: { source: "user-entered" } },
+    depth: { value: depth, unit: "mm", provenance: { source: "user-entered" } },
+  };
+}
 
 describe("json schema generation", () => {
   it("generates a Draft 2020-12 project schema with stable metadata", () => {

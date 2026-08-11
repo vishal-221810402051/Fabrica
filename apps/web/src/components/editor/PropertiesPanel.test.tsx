@@ -1,7 +1,8 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { deriveRouteGeometry } from "geometry-core";
+import { DEFINITION_IDENTITY_EXTENSION } from "microfluidic-components";
 import { parseProject, stringifyProject, type ConnectionId } from "project-model";
 
 import { createProjectExport } from "../../import-export/projectExport";
@@ -10,6 +11,7 @@ import {
   insertComponentFromDefinition,
   moveComponents,
   reassignSelectedComponentsLane,
+  updateComponentParameterValues,
 } from "../../editor/editorActions";
 import { updatePhysicalRouteProperties } from "../../editor/physicalRouteActions";
 import { createLane } from "../../editor/propertyActions";
@@ -64,6 +66,24 @@ function changeField(label: string, value: string) {
   });
 }
 
+function createSelectedComponent(definitionKey: string): string {
+  let componentId = "";
+  act(() => {
+    projectStore.getState().createNewProject();
+    projectStore.getState().updateProject((project) => {
+      const inserted = insertComponentFromDefinition(project, {
+        definitionKey,
+        layerId: project.layers[0]!.id,
+        position: { x: 2, y: 2 },
+      });
+      componentId = inserted.insertedComponentId;
+      return inserted.project;
+    }, "Create selected component");
+    projectStore.getState().setSelectedComponents([componentId]);
+  });
+  return componentId;
+}
+
 function expectSerpentineRoute(connectionId: string) {
   const project = projectStore.getState().project!;
   const route = project.physicalRoutes.find(
@@ -79,6 +99,96 @@ function expectSerpentineRoute(connectionId: string) {
 describe("PropertiesPanel lane management", () => {
   afterEach(() => {
     resetProjectStoreForTests();
+  });
+
+  it("edits splitter dimensions through the explicit physical dimensions section", () => {
+    const componentId = createSelectedComponent("junction.splitter");
+    const originalProject = projectStore.getState().project!;
+    const originalPortIds = [...originalProject.components[0]!.portIds];
+    expect(
+      originalProject.components[0]!.extensions[DEFINITION_IDENTITY_EXTENSION],
+    ).toMatchObject({ definitionKey: "junction.splitter" });
+    render(<PropertiesPanel />);
+
+    const section = screen.getByText("Physical dimensions").closest("section")!;
+    expect(within(section).getByLabelText("Width")).toHaveValue("2");
+    expect(within(section).getByLabelText("Height")).toHaveValue("1");
+    expect(within(section).getByLabelText("Depth")).toHaveValue("0.2");
+    expect(
+      within(section).getByRole("button", { name: "Reset dimensions" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Parameters" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(within(section).getByLabelText("Width"), {
+      target: { value: "3.5" },
+    });
+    fireEvent.change(within(section).getByLabelText("Height"), {
+      target: { value: "1.4" },
+    });
+    fireEvent.change(within(section).getByLabelText("Depth"), {
+      target: { value: "0.35" },
+    });
+    fireEvent.click(within(section).getByRole("button", { name: "Apply" }));
+
+    const component = projectStore
+      .getState()
+      .project!.components.find((item) => item.id === componentId)!;
+    expect(component.kind).toBe("junction");
+    if (component.kind !== "junction") {
+      throw new Error("Expected junction component");
+    }
+    expect(component.junction.dimensions?.width.value).toBe(3.5);
+    expect(component.junction.dimensions?.height.value).toBe(1.4);
+    expect(component.junction.dimensions?.depth.value).toBe(0.35);
+    expect(component.portIds).toEqual(originalPortIds);
+  });
+
+  it("resets merger dimensions from registry defaults", () => {
+    const componentId = createSelectedComponent("junction.merger");
+    expect(
+      projectStore.getState().project!.components[0]!.extensions[
+        DEFINITION_IDENTITY_EXTENSION
+      ],
+    ).toMatchObject({ definitionKey: "junction.merger" });
+    act(() => {
+      projectStore.getState().updateProject(
+        (project) =>
+          updateComponentParameterValues(project, {
+            componentId,
+            updates: {
+              width: { value: 4, unit: "mm", provenance: { source: "user-entered" } },
+              height: { value: 2, unit: "mm", provenance: { source: "user-entered" } },
+              depth: {
+                value: 0.5,
+                unit: "mm",
+                provenance: { source: "user-entered" },
+              },
+            },
+          }),
+        "Preset merger dimensions",
+      );
+    });
+    render(<PropertiesPanel />);
+
+    const section = screen.getByText("Physical dimensions").closest("section")!;
+    expect(within(section).getByLabelText("Width")).toHaveValue("4");
+    fireEvent.click(within(section).getByRole("button", { name: "Reset dimensions" }));
+
+    const component = projectStore
+      .getState()
+      .project!.components.find((item) => item.id === componentId)!;
+    expect(component.kind).toBe("junction");
+    if (component.kind !== "junction") {
+      throw new Error("Expected junction component");
+    }
+    expect(component.junction.dimensions?.width.value).toBe(2);
+    expect(component.junction.dimensions?.height.value).toBe(1);
+    expect(component.junction.dimensions?.depth.value).toBe(0.2);
+    expect(component.junction.dimensions?.width.provenance.source).toBe(
+      "system-default",
+    );
   });
 
   it("creates the first lane and opens the lane inspector", () => {

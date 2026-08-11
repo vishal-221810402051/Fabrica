@@ -1,7 +1,7 @@
 # 3D Preview
 
 Phase 9A adds a synchronized browser 3D preview for the authoritative Project
-`0.4.0` physical geometry. The preview is a projection only. It is not a CAD
+`0.5.0` physical geometry. The preview is a projection only. It is not a CAD
 kernel, manufacturing validator, or second engineering model.
 
 ## Authority Boundary
@@ -9,7 +9,7 @@ kernel, manufacturing validator, or second engineering model.
 The data direction is:
 
 ```text
-Project 0.4.0
+Project 0.5.0
 -> geometry-core projectToSceneGeometry(...)
 -> plain rendering-neutral scene data
 -> lazy web 3D viewer
@@ -21,6 +21,11 @@ layer Z ranges, component footprints, physical port positions, route centerline
 primitives, continuous rectangular route-body boundaries, top-down cavity
 placement, and preview warnings. The web viewer owns only camera, material,
 layer visibility, port visibility, picking, and mesh rendering.
+
+Component footprints are resolved instance-first. Registry physical metadata is
+only a seed for new instances and explicit Reset behavior, with legacy fallback
+reserved for older data. Splitter and merger previews therefore use persisted
+`junction.dimensions` instead of reading registry defaults at render time.
 
 Three.js objects, camera state, controls, layer visibility, material mode, port
 marker visibility, and view presets are UI state only. They are not serialized
@@ -89,6 +94,53 @@ Phase 9A supports physical rendering for dimension-backed reservoirs and
 chambers, `junction.splitter`, `junction.merger`, and complete physical
 routes. Unsupported components are represented with derived warnings and must
 not receive fabricated footprints or depths.
+
+Splitter and merger previews are not rendered as ordinary opaque component
+boxes. `geometry-core` derives a rendering-neutral junction topology from the
+persisted component dimensions, component placement/rotation, and physical
+port frames. It then builds one continuous, non-persisted Y/reverse-Y polygon
+from the per-port corridor interfaces and central junction join. The boundary is
+allowed to be concave: branch directions are sorted angularly around the
+junction center, adjacent offset side rails are intersected, and shallow joins
+use a bounded bevel rather than a convex hull or broad triangular plenum. The
+port interface at each connected splitter/merger port adapts to the connected
+PhysicalRoute endpoint tangent while keeping the component-owned port position
+and the route-owned width/depth. A short derived throat establishes local
+tangent continuity before the arm transitions into a compact shared central
+core. The core is centered on the derived junction center, sized from branch
+widths and arm lengths, and exists only to keep the three adaptive arms as one
+connected cavity. The final polygon must contain the junction center and has no
+holes. The 3D viewer extrudes that polygon as a single selectable junction body, so
+splitter appears as one connected stem branching into two arms and merger
+appears as two arms converging into one stem without overlapping branch boxes.
+The rectangular component footprint may remain an interaction or engineering
+envelope in 2D, but the default 3D body is the unified junction preview.
+
+The unified junction body is engineering preview geometry only. It is not a
+final manufacturing cavity definition, CAD boolean, taper, plenum, fillet, or
+flow-aware transition geometry. Phase 10B must formalize manufacturing cavity
+semantics from the same Project and route data rather than reverse-engineering
+browser meshes.
+
+Each splitter/merger port resolves the PhysicalRoute connected to its exact
+port ID. Connected route width and depth define that port's local preview
+interface size. Different ports may therefore display different interface
+widths and depths around the same unified body. Unconnected ports use a
+deterministic non-persisted preview fallback derived from the junction envelope;
+as soon as a route is connected, route width/depth win. Route pattern affects
+the upstream centerline and therefore the local endpoint tangent; changing a
+manual or serpentine route regenerates the junction throat orientation without
+persisting preview geometry. If a connected route depth exceeds the persisted
+junction depth envelope, the preview reports an engineering incompatibility
+instead of silently resizing the component, clipping the route, or fabricating a
+second port-size authority.
+
+Route preview bodies normally retain derived penetration into physical
+components for engineering continuity checks. For splitter/merger preview
+rendering only, route bodies are capped at the port interface plane so the
+separate channel and junction meshes meet cleanly without a large transparent
+overlap wedge. This does not change logical route endpoints, route length,
+PhysicalRoute persistence, or future CAD Boolean policy.
 
 Complete physical routes render one continuous rectangular channel/removal
 volume per ready route. `geometry-core` derives a CAD-space planar route body

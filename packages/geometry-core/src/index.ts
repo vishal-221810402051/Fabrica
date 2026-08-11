@@ -187,6 +187,7 @@ export interface SceneComponentGeometry {
   definitionKey: string;
   kind: Component["kind"];
   layerId: string;
+  renderMode: "box" | "junction-body";
   footprint: PhysicalFootprint;
   center: Point3D;
   size: { width: number; height: number; depth: number };
@@ -194,6 +195,75 @@ export interface SceneComponentGeometry {
   zTop: number;
   zBottom: number;
   physicalReady: boolean;
+  junctionBody?: SceneJunctionBodyGeometry;
+}
+
+export type JunctionSemanticRole = "input" | "output";
+
+export interface JunctionTopologyIssue {
+  code: string;
+  message: string;
+  portId?: string;
+  connectionId?: string;
+  routeId?: string;
+}
+
+export interface JunctionBranchGeometry {
+  portId: string;
+  connectionId?: string;
+  physicalRouteId?: string;
+  start: Point2D;
+  end: Point2D;
+  width: number;
+  depth: number;
+  direction: Port["direction"];
+  semanticRole: JunctionSemanticRole;
+  interfaceTangent: Point2D;
+  throatLength: number;
+}
+
+export interface JunctionPortInterfaceGeometry {
+  portId: string;
+  connectionId?: string;
+  physicalRouteId?: string;
+  portPosition: Point2D;
+  width: number;
+  depth: number;
+  semanticRole: JunctionSemanticRole;
+  interfaceTangent: Point2D;
+  throatLength: number;
+}
+
+export interface JunctionBody2D {
+  componentId: string;
+  definitionKey: "junction.splitter" | "junction.merger";
+  center: Point2D;
+  boundary: Point2D[];
+  portInterfaces: JunctionPortInterfaceGeometry[];
+  depth: number;
+  issues: JunctionTopologyIssue[];
+}
+
+export interface JunctionTopologyGeometry {
+  componentId: string;
+  definitionKey: "junction.splitter" | "junction.merger";
+  center: Point2D;
+  branches: JunctionBranchGeometry[];
+  body: JunctionBody2D;
+  fallbackWidth: number;
+  fallbackDepth: number;
+  issues: JunctionTopologyIssue[];
+}
+
+export interface SceneJunctionBodyGeometry {
+  id: string;
+  componentId: string;
+  layerId: string;
+  boundary: Point2D[];
+  portInterfaces: JunctionPortInterfaceGeometry[];
+  depth: number;
+  zTop: number;
+  zBottom: number;
 }
 
 export interface SceneRouteSegmentGeometry {
@@ -263,6 +333,13 @@ export interface SceneGeometry {
 export const PHYSICAL_SNAP_MM = 0.1;
 export const MAJOR_GRID_MM = 1;
 export const DISPLAY_PIXELS_PER_MM = 24;
+export const DEFAULT_JUNCTION_PREVIEW_WIDTH_MM = 0.3;
+export const DEFAULT_JUNCTION_PREVIEW_DEPTH_MM = 0.2;
+const JUNCTION_THROAT_LENGTH_WIDTH_MULTIPLIER = 1.5;
+const JUNCTION_THROAT_MIN_LENGTH_MM = 1e-4;
+const JUNCTION_THROAT_MAX_ARM_FRACTION = 0.01;
+const JUNCTION_CORE_RADIUS_WIDTH_MULTIPLIER = 0.5;
+const JUNCTION_CORE_MAX_ARM_FRACTION = 0.45;
 
 export function minimumSerpentineBendRadius(width: number): number {
   assertFinite(width, "Route width");
@@ -612,6 +689,7 @@ export function deriveRouteBodyPrimitivesWithInterfaces(
   primitives: readonly CenterlinePrimitive[],
   routeWidth: number,
   tolerance = 1e-6,
+  options: { capJunctionInterfaces?: boolean } = {},
 ): { primitives: CenterlinePrimitive[]; interfaces: RouteInterfaceExtensions } {
   const interfaces = deriveRouteInterfaceExtensions(
     project,
@@ -620,7 +698,14 @@ export function deriveRouteBodyPrimitivesWithInterfaces(
     tolerance,
   );
   const nextPrimitives = [...primitives];
-  if (interfaces.source && nextPrimitives[0]) {
+  if (
+    interfaces.source &&
+    nextPrimitives[0] &&
+    !(
+      options.capJunctionInterfaces &&
+      isSplitterMergerInterface(project, interfaces.source)
+    )
+  ) {
     const first = nextPrimitives[0];
     if (
       distance(interfaces.source.insidePosition, interfaces.source.portPosition) >
@@ -632,7 +717,14 @@ export function deriveRouteBodyPrimitivesWithInterfaces(
       );
     }
   }
-  if (interfaces.target && nextPrimitives.at(-1)) {
+  if (
+    interfaces.target &&
+    nextPrimitives.at(-1) &&
+    !(
+      options.capJunctionInterfaces &&
+      isSplitterMergerInterface(project, interfaces.target)
+    )
+  ) {
     const last = nextPrimitives.at(-1)!;
     if (
       distance(interfaces.target.portPosition, interfaces.target.insidePosition) >
@@ -645,6 +737,24 @@ export function deriveRouteBodyPrimitivesWithInterfaces(
     }
   }
   return { primitives: nextPrimitives, interfaces };
+}
+
+function isSplitterMergerInterface(
+  project: Project,
+  routeInterface: RouteInterfaceExtension,
+): boolean {
+  const component = project.components.find(
+    (candidate) => candidate.id === routeInterface.componentId,
+  );
+  return component ? isSplitterMergerComponent(component) : false;
+}
+
+function isSplitterMergerComponent(component: Component): boolean {
+  if (component.kind !== "junction") {
+    return false;
+  }
+  const definition = readDefinition(component);
+  return definition.key === "junction.splitter" || definition.key === "junction.merger";
 }
 
 export function polygonIntersectionArea(
@@ -874,7 +984,7 @@ function validateRouteBodyInterfaces(
       },
     );
     const planarOverlap = polygonIntersectionArea(body.boundary, footprintCad);
-    if (planarOverlap <= 1e-9) {
+    if (planarOverlap <= 1e-9 && !isSplitterMergerComponent(component)) {
       issues.push(
         routeBodyIssue(
           `${endpoint.kind}-interface-overlap-missing`,
@@ -972,6 +1082,9 @@ export function deriveComponentFootprint(
   }
   if (component.kind === "chamber") {
     return fromBox(component.chamber.dimensions, "project-dimensions");
+  }
+  if (component.kind === "junction" && component.junction.dimensions) {
+    return fromBox(component.junction.dimensions, "project-dimensions");
   }
   if (component.kind === "generic" && component.dimensions) {
     return {
@@ -1077,11 +1190,386 @@ export function getPhysicalPortFrame(
   };
 }
 
+export function deriveJunctionTopology(
+  project: Project,
+  component: Component,
+): JunctionTopologyGeometry | null {
+  if (component.kind !== "junction") {
+    return null;
+  }
+  const definition = readDefinition(component);
+  if (definition.key !== "junction.splitter" && definition.key !== "junction.merger") {
+    return null;
+  }
+  const footprint = deriveComponentFootprint(component);
+  if (!footprint?.depth) {
+    return null;
+  }
+  const componentDepth = footprint.depth;
+  const componentPorts = component.portIds
+    .map((portId) => project.ports.find((port) => port.id === portId))
+    .filter((port): port is Port => Boolean(port));
+  const center = {
+    x: component.position.x.value + footprint.width / 2,
+    y: component.position.y.value + footprint.height / 2,
+  };
+  const fallbackWidth = clamp(
+    DEFAULT_JUNCTION_PREVIEW_WIDTH_MM,
+    Math.min(footprint.width, footprint.height) * 0.08,
+    Math.min(footprint.width, footprint.height) * 0.3,
+  );
+  const fallbackDepth = componentDepth || DEFAULT_JUNCTION_PREVIEW_DEPTH_MM;
+  const issues: JunctionTopologyIssue[] = [];
+  const inputPorts = componentPorts.filter(
+    (port) => port.direction === "input" || port.direction === "bidirectional",
+  );
+  const outputPorts = componentPorts.filter(
+    (port) => port.direction === "output" || port.direction === "bidirectional",
+  );
+  const inputByTemplate = new Map(
+    inputPorts.map((port) => [readPortTemplateMetadata(port).templateKey, port]),
+  );
+  const outputByTemplate = new Map(
+    outputPorts.map((port) => [readPortTemplateMetadata(port).templateKey, port]),
+  );
+  const branchForPort = (
+    port: Port | undefined,
+    semanticRole: JunctionSemanticRole,
+  ): JunctionBranchGeometry | null => {
+    if (!port) {
+      return null;
+    }
+    const frame = getPhysicalPortFrame(project, component, port);
+    const routeInterface = resolveConnectedRouteInterface(project, port);
+    if (
+      routeInterface.route?.depth &&
+      routeInterface.route.depth.value > componentDepth
+    ) {
+      issues.push({
+        code: "junction-route-depth-exceeds-component-depth",
+        message: "Connected route depth exceeds the junction component depth envelope",
+        portId: port.id,
+        connectionId: routeInterface.connection?.id,
+        routeId: routeInterface.route.id,
+      });
+    }
+    const width = routeInterface.route?.width?.value ?? fallbackWidth;
+    const depth = routeInterface.route?.depth?.value ?? fallbackDepth;
+    const portToCenter = normalize({
+      x: center.x - frame.position.x,
+      y: center.y - frame.position.y,
+    });
+    const fallbackTangent = normalize(scalePoint(frame.outward, -1)) ??
+      portToCenter ?? { x: 1, y: 0 };
+    const routeTangent = routeInterface.route
+      ? deriveRouteEndpointTangent(project, routeInterface.route, port.id)
+      : null;
+    const signedTangent =
+      routeTangent && portToCenter
+        ? dot(routeTangent, portToCenter) >= 0
+          ? routeTangent
+          : scalePoint(routeTangent, -1)
+        : (routeTangent ?? fallbackTangent);
+    const interfaceTangent = normalize(signedTangent) ?? fallbackTangent;
+    const throatLength = deriveJunctionThroatLength(
+      distance(frame.position, center),
+      width,
+    );
+    const startsAtPort = semanticRole === "input";
+    return {
+      portId: port.id,
+      ...(routeInterface.connection
+        ? { connectionId: routeInterface.connection.id }
+        : {}),
+      ...(routeInterface.route ? { physicalRouteId: routeInterface.route.id } : {}),
+      start: startsAtPort ? frame.position : center,
+      end: startsAtPort ? center : frame.position,
+      width,
+      depth,
+      direction: port.direction,
+      semanticRole,
+      interfaceTangent,
+      throatLength,
+    };
+  };
+  const branches =
+    definition.key === "junction.splitter"
+      ? [
+          branchForPort(inputByTemplate.get("in") ?? inputPorts[0], "input"),
+          branchForPort(outputByTemplate.get("out-a") ?? outputPorts[0], "output"),
+          branchForPort(outputByTemplate.get("out-b") ?? outputPorts[1], "output"),
+        ]
+      : [
+          branchForPort(inputByTemplate.get("in-a") ?? inputPorts[0], "input"),
+          branchForPort(inputByTemplate.get("in-b") ?? inputPorts[1], "input"),
+          branchForPort(outputByTemplate.get("out") ?? outputPorts[0], "output"),
+        ];
+  const resolvedBranches = branches.filter((branch): branch is JunctionBranchGeometry =>
+    Boolean(branch),
+  );
+  const body = deriveJunctionBodyFromBranches({
+    componentId: component.id,
+    definitionKey: definition.key,
+    center,
+    branches: resolvedBranches,
+    depth: componentDepth,
+    issues,
+  });
+  return {
+    componentId: component.id,
+    definitionKey: definition.key,
+    center,
+    branches: resolvedBranches,
+    body,
+    fallbackWidth,
+    fallbackDepth,
+    issues,
+  };
+}
+
+function deriveJunctionBodyFromBranches(input: {
+  componentId: string;
+  definitionKey: "junction.splitter" | "junction.merger";
+  center: Point2D;
+  branches: readonly JunctionBranchGeometry[];
+  depth: number;
+  issues: JunctionTopologyIssue[];
+}): JunctionBody2D {
+  const portInterfaces = input.branches.map((branch) => ({
+    portId: branch.portId,
+    ...(branch.connectionId ? { connectionId: branch.connectionId } : {}),
+    ...(branch.physicalRouteId ? { physicalRouteId: branch.physicalRouteId } : {}),
+    portPosition: branch.semanticRole === "input" ? branch.start : branch.end,
+    width: branch.width,
+    depth: branch.depth,
+    semanticRole: branch.semanticRole,
+    interfaceTangent: branch.interfaceTangent,
+    throatLength: branch.throatLength,
+  }));
+  const maximumWidth = Math.max(
+    ...input.branches.map((branch) => branch.width),
+    DEFAULT_JUNCTION_PREVIEW_WIDTH_MM,
+  );
+  const boundary =
+    input.branches.length >= 2
+      ? deriveJunctionBodyBoundary(input.center, input.branches, maximumWidth)
+      : [];
+  const bodyIssues = validateJunctionBodyBoundary(boundary);
+  input.issues.push(...bodyIssues);
+  return {
+    componentId: input.componentId,
+    definitionKey: input.definitionKey,
+    center: input.center,
+    boundary,
+    portInterfaces,
+    depth: input.depth,
+    issues: bodyIssues,
+  };
+}
+
+function deriveJunctionBodyBoundary(
+  center: Point2D,
+  branches: readonly JunctionBranchGeometry[],
+  maximumWidth: number,
+): Point2D[] {
+  const descriptors = branches
+    .map((branch) => junctionBranchDescriptor(center, branch))
+    .sort((left, right) => left.angle - right.angle);
+  const coreRadius = deriveJunctionCoreRadius(
+    maximumWidth,
+    descriptors.map((descriptor) => distance(center, descriptor.port)),
+  );
+  const gapJoins = descriptors.map((descriptor, index) => [
+    deriveCentralCoreGapPoint(
+      center,
+      descriptor.direction,
+      descriptors[(index + 1) % descriptors.length]!,
+      coreRadius,
+    ),
+  ]);
+  const boundary = buildJunctionBoundaryFromJoins(descriptors, gapJoins);
+  return signedPolygonArea(boundary) < 0 ? [...boundary].reverse() : boundary;
+}
+
+function buildJunctionBoundaryFromJoins(
+  descriptors: readonly JunctionBranchBoundaryDescriptor[],
+  gapJoins: readonly Point2D[][],
+): Point2D[] {
+  const points: Point2D[] = [];
+  for (let index = 0; index < descriptors.length; index += 1) {
+    const descriptor = descriptors[index]!;
+    const beforeJoin = gapJoins[(index + gapJoins.length - 1) % gapJoins.length]!;
+    points.push(
+      beforeJoin[beforeJoin.length - 1]!,
+      descriptor.innerRight,
+      descriptor.portRight,
+      descriptor.portLeft,
+      descriptor.innerLeft,
+      ...gapJoins[index]!,
+    );
+  }
+  return removeConsecutiveDuplicatePoints(points);
+}
+
+function deriveJunctionThroatLength(availableArmLength: number, width: number): number {
+  const maximumLength = Math.max(
+    PHYSICAL_SNAP_MM,
+    availableArmLength * JUNCTION_THROAT_MAX_ARM_FRACTION,
+  );
+  const desiredLength = Math.max(
+    JUNCTION_THROAT_MIN_LENGTH_MM,
+    width * JUNCTION_THROAT_LENGTH_WIDTH_MULTIPLIER,
+  );
+  return clamp(desiredLength, JUNCTION_THROAT_MIN_LENGTH_MM, maximumLength);
+}
+
+interface JunctionBranchBoundaryDescriptor {
+  branch: JunctionBranchGeometry;
+  port: Point2D;
+  direction: Point2D;
+  transitionDirection: Point2D;
+  normal: Point2D;
+  angle: number;
+  portLeft: Point2D;
+  portRight: Point2D;
+  innerCenter: Point2D;
+  innerLeft: Point2D;
+  innerRight: Point2D;
+}
+
+function junctionBranchDescriptor(
+  center: Point2D,
+  branch: JunctionBranchGeometry,
+): JunctionBranchBoundaryDescriptor {
+  const port = branch.semanticRole === "input" ? branch.start : branch.end;
+  const direction =
+    normalize({
+      x: port.x - center.x,
+      y: port.y - center.y,
+    }) ?? branch.interfaceTangent;
+  const rawNormal = { x: -branch.interfaceTangent.y, y: branch.interfaceTangent.x };
+  const angularNormal = { x: -direction.y, y: direction.x };
+  const normal =
+    dot(rawNormal, angularNormal) >= 0 ? rawNormal : scalePoint(rawNormal, -1);
+  const halfWidth = branch.width / 2;
+  const innerCenter = addPoint(
+    port,
+    scalePoint(branch.interfaceTangent, branch.throatLength),
+  );
+  const transitionDirection =
+    normalize({
+      x: center.x - innerCenter.x,
+      y: center.y - innerCenter.y,
+    }) ??
+    normalize({
+      x: port.x - center.x,
+      y: port.y - center.y,
+    }) ??
+    branch.interfaceTangent;
+  return {
+    branch,
+    port,
+    direction,
+    transitionDirection,
+    normal,
+    angle: Math.atan2(direction.y, direction.x),
+    portLeft: addPoint(port, scalePoint(normal, halfWidth)),
+    portRight: addPoint(port, scalePoint(normal, -halfWidth)),
+    innerCenter,
+    innerLeft: addPoint(innerCenter, scalePoint(normal, halfWidth)),
+    innerRight: addPoint(innerCenter, scalePoint(normal, -halfWidth)),
+  };
+}
+
+function deriveJunctionCoreRadius(
+  maximumWidth: number,
+  armLengths: readonly number[],
+): number {
+  const shortestArm = Math.min(...armLengths.filter((length) => length > 0));
+  const envelopeLimit = Number.isFinite(shortestArm)
+    ? shortestArm * JUNCTION_CORE_MAX_ARM_FRACTION
+    : maximumWidth;
+  const desired = maximumWidth * JUNCTION_CORE_RADIUS_WIDTH_MULTIPLIER;
+  return clamp(desired, JUNCTION_THROAT_MIN_LENGTH_MM, envelopeLimit);
+}
+
+function deriveCentralCoreGapPoint(
+  center: Point2D,
+  leftDirection: Point2D,
+  rightBranch: JunctionBranchBoundaryDescriptor,
+  coreRadius: number,
+): Point2D {
+  const bisector = normalize({
+    x: leftDirection.x + rightBranch.direction.x,
+    y: leftDirection.y + rightBranch.direction.y,
+  });
+  const direction =
+    bisector ??
+    normalize({
+      x: rightBranch.direction.y,
+      y: -rightBranch.direction.x,
+    }) ??
+    rightBranch.direction;
+  return addPoint(center, scalePoint(direction, coreRadius));
+}
+
+function validateJunctionBodyBoundary(
+  boundary: readonly Point2D[],
+): JunctionTopologyIssue[] {
+  const issues: JunctionTopologyIssue[] = [];
+  if (boundary.some((point) => !pointFinite(point))) {
+    issues.push({
+      code: "junction-body-invalid-coordinate",
+      message: "Derived junction preview body contains a non-finite coordinate",
+    });
+  }
+  if (Math.abs(signedPolygonArea(boundary)) <= 1e-9) {
+    issues.push({
+      code: "junction-body-invalid-area",
+      message: "Derived junction preview body has no usable area",
+    });
+  }
+  if (polygonSelfIntersects(boundary)) {
+    issues.push({
+      code: "junction-body-self-intersection",
+      message: "Derived junction preview body is self-intersecting",
+    });
+  }
+  return issues;
+}
+
 export function deriveFullRoutePolyline(
   project: Project,
   route: PhysicalRoute,
 ): Point2D[] {
   return deriveRouteGeometry(project, route).points;
+}
+
+export function deriveRouteEndpointTangent(
+  project: Project,
+  route: PhysicalRoute,
+  portId: string,
+): Point2D | null {
+  const connection = project.connections.find(
+    (candidate) => candidate.id === route.connectionId,
+  );
+  if (!connection) {
+    return null;
+  }
+  const generated = deriveRouteGeometry(project, route);
+  const primitives = generated.primitives.filter(
+    (primitive) => primitiveLength(primitive) > 1e-9,
+  );
+  if (primitives.length === 0) {
+    return null;
+  }
+  if (portId === connection.sourcePortId) {
+    return primitiveStartTangent(primitives[0]!);
+  }
+  if (portId === connection.targetPortId) {
+    return primitiveEndTangent(primitives[primitives.length - 1]!);
+  }
+  return null;
 }
 
 export interface RoutePointSample {
@@ -1417,6 +1905,34 @@ export function projectToSceneGeometry(project: Project): SceneGeometry {
       },
       component.layerId,
     );
+    const junctionTopology = deriveJunctionTopology(project, component);
+    if (junctionTopology) {
+      for (const issue of junctionTopology.issues) {
+        warnings.push({
+          code: issue.code,
+          message: issue.message,
+          entityId: issue.routeId ?? issue.portId ?? component.id,
+          entityType: issue.routeId ? "physical-route" : "component",
+          connectionId: issue.connectionId,
+          path: issue.routeId
+            ? `physicalRoutes.${project.physicalRoutes.findIndex(
+                (route) => route.id === issue.routeId,
+              )}.depth`
+            : `components.${index}`,
+        });
+      }
+    }
+    const junctionBody = junctionTopology
+      ? junctionBodyToSceneGeometry(
+          project,
+          component,
+          junctionTopology.body,
+          placement.zTop,
+        )
+      : undefined;
+    const renderMode: SceneComponentGeometry["renderMode"] = junctionBody
+      ? "junction-body"
+      : "box";
     return [
       {
         id: component.id,
@@ -1424,6 +1940,7 @@ export function projectToSceneGeometry(project: Project): SceneGeometry {
         definitionKey,
         kind: component.kind,
         layerId: component.layerId,
+        renderMode,
         footprint,
         center: { ...cadCenter, z: placement.zCenter },
         size: {
@@ -1435,6 +1952,7 @@ export function projectToSceneGeometry(project: Project): SceneGeometry {
         zTop: placement.zTop,
         zBottom: placement.zBottom,
         physicalReady: true,
+        ...(junctionBody ? { junctionBody } : {}),
       },
     ];
   });
@@ -1505,6 +2023,41 @@ export function projectToSceneGeometry(project: Project): SceneGeometry {
   };
 }
 
+function junctionBodyToSceneGeometry(
+  project: Project,
+  component: Component,
+  body: JunctionBody2D,
+  zTop: number,
+): SceneJunctionBodyGeometry {
+  return {
+    id: `${component.id}:junction-body`,
+    componentId: component.id,
+    layerId: component.layerId,
+    boundary: body.boundary.map((point) => {
+      const cadPoint = toCadPoint(project, point, component.layerId);
+      return { x: cadPoint.x, y: cadPoint.y };
+    }),
+    portInterfaces: body.portInterfaces.map((portInterface) => {
+      const cadPortPosition = toCadPoint(
+        project,
+        portInterface.portPosition,
+        component.layerId,
+      );
+      return {
+        ...portInterface,
+        portPosition: { x: cadPortPosition.x, y: cadPortPosition.y },
+        interfaceTangent: {
+          x: portInterface.interfaceTangent.x,
+          y: -portInterface.interfaceTangent.y,
+        },
+      };
+    }),
+    depth: body.depth,
+    zTop,
+    zBottom: zTop - body.depth,
+  };
+}
+
 export function validatePhysicalGeometry(project: Project): GeometryIssue[] {
   const issues: GeometryIssue[] = [];
   const layerIds = new Set(project.layers.map((layer) => layer.id));
@@ -1525,6 +2078,21 @@ export function validatePhysicalGeometry(project: Project): GeometryIssue[] {
       issues.push({
         code: "invalid-footprint",
         message: "Component footprint width and height must be positive",
+        path: `components.${index}`,
+        entityId: component.id,
+      });
+    }
+    const layer = project.layers.find(
+      (candidate) => candidate.id === component.layerId,
+    );
+    if (
+      footprint.depth !== undefined &&
+      layer &&
+      footprint.depth > layer.thickness.value
+    ) {
+      issues.push({
+        code: "component-depth-exceeds-layer",
+        message: "Component depth must not exceed its owning layer thickness",
         path: `components.${index}`,
         entityId: component.id,
       });
@@ -1565,6 +2133,37 @@ export function validatePhysicalGeometry(project: Project): GeometryIssue[] {
         path: `physicalRoutes.${index}.depth`,
         entityId: route.id,
       });
+    }
+    if (route.depth) {
+      const connection = project.connections.find(
+        (candidate) => candidate.id === route.connectionId,
+      );
+      const connectedPortIds = connection
+        ? [connection.sourcePortId, connection.targetPortId]
+        : [];
+      for (const portId of connectedPortIds) {
+        const port = project.ports.find((candidate) => candidate.id === portId);
+        const component = port
+          ? project.components.find((candidate) => candidate.id === port.componentId)
+          : undefined;
+        const topology = component ? deriveJunctionTopology(project, component) : null;
+        const componentDepth = component
+          ? deriveComponentFootprint(component)?.depth
+          : undefined;
+        if (
+          topology &&
+          componentDepth !== undefined &&
+          route.depth.value > componentDepth
+        ) {
+          issues.push({
+            code: "junction-route-depth-exceeds-component-depth",
+            message:
+              "Connected route depth exceeds the junction component depth envelope",
+            path: `physicalRoutes.${index}.depth`,
+            entityId: route.id,
+          });
+        }
+      }
     }
     const generated = deriveRouteGeometry(project, route);
     for (const issue of generated.issues) {
@@ -1732,6 +2331,8 @@ function routeToSceneGeometry(
             route,
             generated.primitives,
             route.width.value,
+            1e-6,
+            { capJunctionInterfaces: true },
           ).primitives.map((primitive) =>
             primitiveToCadPrimitive(project, primitive, route.layerId),
           ),
@@ -3558,6 +4159,32 @@ function centerlineSamplesSelfIntersect(samples: readonly RouteBodySample[]): bo
   return false;
 }
 
+function polygonSelfIntersects(points: readonly Point2D[]): boolean {
+  if (points.length < 4) {
+    return false;
+  }
+  for (let left = 0; left < points.length; left += 1) {
+    const leftLine = linePrimitive(points[left]!, points[(left + 1) % points.length]!);
+    for (let right = left + 1; right < points.length; right += 1) {
+      if (
+        right === left ||
+        right === (left + 1) % points.length ||
+        left === (right + 1) % points.length
+      ) {
+        continue;
+      }
+      const rightLine = linePrimitive(
+        points[right]!,
+        points[(right + 1) % points.length]!,
+      );
+      if (segmentsIntersect(leftLine, rightLine, 1e-9)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function sumPrimitiveLengths(primitives: readonly CenterlinePrimitive[]): number {
   return primitives.reduce((sum, primitive) => sum + primitive.length, 0);
 }
@@ -3939,6 +4566,29 @@ function anchorOutwardNormal(anchor: Point2D): Point2D {
     { distance: 1 - anchor.y, normal: { x: 0, y: 1 } },
   ];
   return distances.sort((left, right) => left.distance - right.distance)[0]!.normal;
+}
+
+function resolveConnectedRouteInterface(
+  project: Project,
+  port: Port,
+): {
+  connection?: Connection;
+  route?: PhysicalRoute;
+} {
+  const connection = project.connections.find(
+    (candidate) =>
+      candidate.sourcePortId === port.id || candidate.targetPortId === port.id,
+  );
+  if (!connection) {
+    return {};
+  }
+  const route = project.physicalRoutes.find(
+    (candidate) => candidate.connectionId === connection.id,
+  );
+  return {
+    connection,
+    ...(route ? { route } : {}),
+  };
 }
 
 function serpentineTolerance(scale: number): number {

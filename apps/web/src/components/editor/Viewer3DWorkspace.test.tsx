@@ -11,7 +11,7 @@ import {
 import { updatePhysicalRouteProperties } from "../../editor/physicalRouteActions";
 import { projectStore, resetProjectStoreForTests } from "../../state/projectStore";
 import { EditorShell } from "./EditorShell";
-import { RouteMesh, Viewer3DWorkspace } from "./Viewer3DWorkspace";
+import { ComponentMesh, RouteMesh, Viewer3DWorkspace } from "./Viewer3DWorkspace";
 import {
   cameraPosition,
   cameraUp,
@@ -209,6 +209,23 @@ describe("Viewer3DWorkspace", () => {
       "#dc2626",
     );
     expect(screen.getByTestId("viewer3d-route-body-connection_body")).toBeDefined();
+  });
+
+  it("renders one junction body instead of an ordinary component box and selects the parent", () => {
+    const scene = projectToSceneGeometry(asymmetricFixtureProject());
+    const merger = scene.components.find((component) =>
+      component.name.includes("Merger"),
+    )!;
+    projectStore.getState().createNewProject();
+
+    render(<ComponentMesh component={merger} selected={false} materialMode="solid" />);
+
+    expect(screen.queryByTestId(`viewer3d-component-box-${merger.id}`)).toBeNull();
+    expect(merger.junctionBody?.portInterfaces).toHaveLength(3);
+    fireEvent.click(screen.getByTestId(`viewer3d-junction-body-${merger.id}`));
+
+    expect(projectStore.getState().selectedComponentIds).toEqual([merger.id]);
+    expect(projectStore.getState().selectedConnectionIds).toEqual([]);
   });
 
   it("maps project points through CAD and Three with one Y inversion", () => {

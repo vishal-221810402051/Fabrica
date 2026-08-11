@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { parseProject, type LayerId } from "project-model";
+import { deriveRouteGeometry } from "geometry-core";
 
 import { projectStore, resetProjectStoreForTests } from "../state/projectStore";
 import { makeProject } from "../test/factories";
@@ -18,6 +19,7 @@ import {
 } from "./editorActions";
 import { EditorActionError } from "./editorErrors";
 import { updatePhysicalRouteProperties } from "./physicalRouteActions";
+import { deriveEditorProjection } from "./editorProjection";
 
 describe("editor project actions", () => {
   it("inserts a component and owned ports atomically", () => {
@@ -287,6 +289,113 @@ describe("editor project actions", () => {
         layerId: "layer_missing" as never,
       }),
     ).toThrow(EditorActionError);
+  });
+
+  it("resizes a connected merger without recreating topology and moves route-derived edit points", () => {
+    let project = makeProject();
+    project = insertComponentFromDefinition(project, {
+      definitionKey: "reservoir.sample-inlet",
+      layerId: project.layers[0]!.id,
+      position: { x: 0, y: 0 },
+    }).project;
+    project = insertComponentFromDefinition(project, {
+      definitionKey: "reservoir.reagent-inlet",
+      layerId: project.layers[0]!.id,
+      position: { x: 0, y: 4 },
+    }).project;
+    project = insertComponentFromDefinition(project, {
+      definitionKey: "junction.merger",
+      layerId: project.layers[0]!.id,
+      position: { x: 5, y: 2 },
+    }).project;
+    project = insertComponentFromDefinition(project, {
+      definitionKey: "chamber.reaction",
+      layerId: project.layers[0]!.id,
+      position: { x: 10, y: 2 },
+    }).project;
+
+    const sampleAOutput = project.ports.find(
+      (port) => port.componentId === project.components[0]!.id,
+    )!;
+    const sampleBOutput = project.ports.find(
+      (port) => port.componentId === project.components[1]!.id,
+    )!;
+    const mergerInputs = project.ports.filter(
+      (port) =>
+        port.componentId === project.components[2]!.id && port.direction === "input",
+    );
+    const mergerOutput = project.ports.find(
+      (port) =>
+        port.componentId === project.components[2]!.id && port.direction === "output",
+    )!;
+    const chamberInput = project.ports.find(
+      (port) =>
+        port.componentId === project.components[3]!.id && port.direction === "input",
+    )!;
+
+    project = createProjectConnection(
+      project,
+      sampleAOutput.id,
+      mergerInputs[0]!.id,
+    ).project;
+    project = createProjectConnection(
+      project,
+      sampleBOutput.id,
+      mergerInputs[1]!.id,
+    ).project;
+    project = createProjectConnection(
+      project,
+      mergerOutput.id,
+      chamberInput.id,
+    ).project;
+    for (const connection of project.connections) {
+      project = updatePhysicalRouteProperties(project, connection.id, {
+        width: { value: 0.2, unit: "mm", provenance: { source: "user-entered" } },
+        depth: { value: 0.1, unit: "mm", provenance: { source: "user-entered" } },
+      });
+    }
+
+    const mergerId = project.components[2]!.id;
+    const connectionIds = project.connections.map((connection) => connection.id);
+    const routeIds = project.physicalRoutes.map((route) => route.id);
+    const trackedRoute = project.physicalRoutes[1]!;
+    const beforeLength = deriveRouteGeometry(project, trackedRoute).actualLength;
+    const beforeEditPoint = deriveEditorProjection(project, {
+      selectedComponentIds: [],
+      selectedConnectionIds: [],
+    }).channelEditPoints.find(
+      (point) => point.connectionId === trackedRoute.connectionId,
+    )!.position;
+
+    const resized = updateComponentParameterValues(project, {
+      componentId: mergerId,
+      updates: {
+        width: { value: 4, unit: "mm", provenance: { source: "user-entered" } },
+        height: { value: 2, unit: "mm", provenance: { source: "user-entered" } },
+      },
+    });
+
+    expect(resized.components[2]!.id).toBe(mergerId);
+    expect(resized.connections.map((connection) => connection.id)).toEqual(
+      connectionIds,
+    );
+    expect(resized.physicalRoutes.map((route) => route.id)).toEqual(routeIds);
+    expect(resized.connections.map((connection) => connection.sourcePortId)).toEqual(
+      project.connections.map((connection) => connection.sourcePortId),
+    );
+    expect(resized.connections.map((connection) => connection.targetPortId)).toEqual(
+      project.connections.map((connection) => connection.targetPortId),
+    );
+    expect(
+      deriveRouteGeometry(resized, resized.physicalRoutes[1]!).actualLength,
+    ).not.toBe(beforeLength);
+    const afterEditPoint = deriveEditorProjection(resized, {
+      selectedComponentIds: [],
+      selectedConnectionIds: [],
+    }).channelEditPoints.find(
+      (point) => point.connectionId === trackedRoute.connectionId,
+    )!.position;
+    expect(afterEditPoint).not.toEqual(beforeEditPoint);
   });
 
   it("returns the original project for no-op property and assignment updates", () => {

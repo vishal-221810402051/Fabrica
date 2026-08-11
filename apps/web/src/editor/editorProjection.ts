@@ -2,6 +2,7 @@ import type { Edge, Node } from "@xyflow/react";
 import {
   deriveComponentFootprint,
   deriveFullRoutePolyline,
+  deriveJunctionTopology,
   deriveRoutePointAtFraction,
   deriveRouteGeometry,
   getPhysicalPortFrame,
@@ -9,7 +10,7 @@ import {
   pointMmToDisplay,
   type CenterlinePrimitive,
 } from "geometry-core";
-import type { Component, Connection, Port, Project } from "project-model";
+import type { Component, Connection, Port, PortId, Project } from "project-model";
 import {
   DEFINITION_IDENTITY_EXTENSION,
   PORT_TEMPLATE_METADATA,
@@ -107,6 +108,7 @@ export function deriveEditorProjection(
     });
     const laidOutPorts = layoutPortHandles(ports);
     const footprint = deriveComponentFootprint(component);
+    const junctionTopology = deriveJunctionTopology(project, component);
     const data: EditorNodeData = {
       componentId: component.id,
       definitionKey: definition.key,
@@ -122,7 +124,31 @@ export function deriveEditorProjection(
       physicalSize: footprint
         ? { x: mmToDisplay(footprint.width), y: mmToDisplay(footprint.height) }
         : { x: mmToDisplay(2), y: mmToDisplay(1) },
+      rotation: component.rotation.value,
       physicalReady: Boolean(footprint),
+      ...(junctionTopology
+        ? {
+            junctionBody: {
+              boundary: junctionTopology.body.boundary.map((point) =>
+                pointMmToDisplay({
+                  x: point.x - component.position.x.value,
+                  y: point.y - component.position.y.value,
+                }),
+              ),
+              portInterfaces: junctionTopology.body.portInterfaces.map(
+                (portInterface) => ({
+                  portId: portInterface.portId as PortId,
+                  portPosition: pointMmToDisplay({
+                    x: portInterface.portPosition.x - component.position.x.value,
+                    y: portInterface.portPosition.y - component.position.y.value,
+                  }),
+                  width: mmToDisplay(portInterface.width),
+                  semanticRole: portInterface.semanticRole,
+                }),
+              ),
+            },
+          }
+        : {}),
     };
     return {
       id: component.id,

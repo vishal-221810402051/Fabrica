@@ -44,6 +44,19 @@ migrationRegistry.set("0.3.0", (input: unknown) => {
   });
 });
 
+migrationRegistry.set("0.4.0", (input: unknown) => {
+  if (!isRecord(input)) {
+    return input;
+  }
+  return normalizeLaneMembership({
+    ...input,
+    schemaVersion: "0.5.0",
+    components: Array.isArray(input.components)
+      ? input.components.map(materializeHistoricalJunctionDimensions)
+      : [],
+  });
+});
+
 export function migrateProjectDocument(input: unknown): unknown {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     return input;
@@ -111,6 +124,45 @@ function migrateSerpentinePlacement(route: unknown): unknown {
     pattern: {
       ...pattern,
       placement: { mode: "auto" },
+    },
+  };
+}
+
+function materializeHistoricalJunctionDimensions(component: unknown): unknown {
+  if (!isRecord(component) || component.kind !== "junction") {
+    return component;
+  }
+  const junction = component.junction;
+  if (!isRecord(junction) || junction.dimensions !== undefined) {
+    return component;
+  }
+  if (junction.category !== "splitter" && junction.category !== "merger") {
+    return component;
+  }
+  return {
+    ...component,
+    junction: {
+      ...junction,
+      dimensions: historicalSplitterMergerDimensions(),
+    },
+  };
+}
+
+function historicalSplitterMergerDimensions() {
+  return {
+    width: historicalLength(2),
+    height: historicalLength(1),
+    depth: historicalLength(0.2),
+  };
+}
+
+function historicalLength(value: number) {
+  return {
+    value,
+    unit: "mm",
+    provenance: {
+      source: "system-default",
+      note: "Materialized during schema 0.4.0 to 0.5.0 migration to preserve historical junction geometry.",
     },
   };
 }

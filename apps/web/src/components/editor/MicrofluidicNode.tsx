@@ -1,15 +1,21 @@
 import { Handle, Position } from "@xyflow/react";
 import type { NodeProps } from "@xyflow/react";
 
-import type { EditorNodeData, EditorPortProjection } from "../../editor/editor.types";
+import type {
+  EditorJunctionBodyProjection,
+  EditorNodeData,
+  EditorPortProjection,
+} from "../../editor/editor.types";
 import { projectStore } from "../../state/projectStore";
 
 export function MicrofluidicNode(props: NodeProps) {
   const data = props.data as EditorNodeData;
+  const junctionBody = data.junctionBody;
   return (
     <article
       className={[
         "micro-node",
+        junctionBody ? "micro-node-junction" : "",
         data.selected ? "micro-node-selected" : "",
         data.physicalReady
           ? "micro-node-physical-ready"
@@ -26,6 +32,7 @@ export function MicrofluidicNode(props: NodeProps) {
         projectStore.getState().setSelectedComponents([props.id]);
       }}
     >
+      {junctionBody ? <JunctionTopology data={data} body={junctionBody} /> : null}
       <header>
         <IconView data={data} />
         <div>
@@ -43,6 +50,35 @@ export function MicrofluidicNode(props: NodeProps) {
         <PortHandle port={port} key={port.portId} />
       ))}
     </article>
+  );
+}
+
+function JunctionTopology(props: {
+  data: EditorNodeData;
+  body: EditorJunctionBodyProjection;
+}) {
+  const points = props.body.boundary.map((point) => `${point.x},${point.y}`).join(" ");
+  return (
+    <svg
+      className="junction-topology"
+      data-testid={`junction-topology-${props.data.definitionKey}`}
+      viewBox={`0 0 ${props.data.physicalSize.x} ${props.data.physicalSize.y}`}
+      aria-hidden="true"
+    >
+      <rect
+        className="junction-footprint-envelope"
+        x="0"
+        y="0"
+        width={props.data.physicalSize.x}
+        height={props.data.physicalSize.y}
+        rx="2"
+      />
+      <polygon
+        className="junction-body-polygon"
+        data-testid={`junction-body-${props.data.definitionKey}`}
+        points={points}
+      />
+    </svg>
   );
 }
 

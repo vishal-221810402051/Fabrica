@@ -125,7 +125,7 @@ function persistedPayload(
     case "channel":
       return channelPayload(definition, values);
     case "junction":
-      return { junction: { category: definition.fixedProperties.category } };
+      return junctionPayload(definition, values);
     case "chamber":
       return chamberPayload(definition, values);
     case "reservoir":
@@ -139,6 +139,20 @@ function persistedPayload(
     case "generic":
       return genericPayload(values);
   }
+}
+
+function junctionPayload(
+  definition: ComponentDefinition,
+  values: Record<string, ParameterValue>,
+): Record<string, unknown> {
+  return {
+    junction: {
+      category: definition.fixedProperties.category,
+      ...(values.width && values.height && values.depth
+        ? { dimensions: boxDimensions(values) }
+        : {}),
+    },
+  };
 }
 
 function channelPayload(

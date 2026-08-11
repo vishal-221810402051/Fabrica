@@ -122,10 +122,11 @@ and layer toggles require manual browser smoke validation.
 
 ## Phase 8C-A Focus
 
-Project-model tests must cover schema `0.4.0`, route pattern validation,
+Project-model tests must cover schema `0.5.0`, route pattern validation,
 `0.2.0` to `0.3.0` migration, empty-waypoint routes becoming straight routes,
 waypoint routes becoming manual routes, `0.3.0` to `0.4.0` serpentine auto
-placement migration, and lane membership consistency between canonical
+placement migration, `0.4.0` to `0.5.0` splitter/merger dimension
+materialization, and lane membership consistency between canonical
 `component.laneId` and the synchronized lane index.
 
 `geometry-core` tests must cover straight route primitives, manual route

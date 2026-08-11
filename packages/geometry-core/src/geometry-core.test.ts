@@ -5,10 +5,12 @@ import { parseProject, type Project } from "project-model";
 import {
   deriveComponentFootprint,
   deriveFullRoutePolyline,
+  deriveJunctionTopology,
   deriveLayerZRanges,
   deriveRoutePointAtFraction,
   deriveRouteBody2D,
   deriveRouteBodyPrimitivesWithInterfaces,
+  deriveRouteEndpointTangent,
   deriveRouteGeometry,
   deriveRouteInterfaceExtensions,
   compactSerpentineRouteDraft,
@@ -29,6 +31,7 @@ import {
   ROUTE_BODY_CHORD_ERROR_MM,
   snapPhysicalPoint,
   toCadPoint,
+  type Point2D,
   validatePhysicalGeometry,
 } from "./index";
 
@@ -194,6 +197,178 @@ function asymmetricRoutedProject(input: { completeRoutes: boolean }): Project {
   });
 }
 
+function routedSplitterProject(input?: {
+  widths?: [number, number, number];
+  depths?: [number, number, number];
+  splitterDimensions?: { width: number; height: number; depth: number };
+  rotation?: number;
+}): Project {
+  let project = withComponent(baseProject(), "reservoir.sample-inlet", 1, 4);
+  project = withComponent(project, "junction.splitter", 8, 4);
+  project = withComponent(project, "chamber.reaction", 14, 2);
+  project = withComponent(project, "chamber.metering", 14, 6);
+  const splitter = project.components.find((component) =>
+    component.name.includes("Splitter"),
+  )!;
+  const dimensions = input?.splitterDimensions;
+  if (dimensions || input?.rotation !== undefined) {
+    project = parseProject({
+      ...project,
+      components: project.components.map((component) =>
+        component.id === splitter.id
+          ? {
+              ...component,
+              ...(input?.rotation !== undefined
+                ? {
+                    rotation: {
+                      ...component.rotation,
+                      value: input.rotation,
+                    },
+                  }
+                : {}),
+              ...(component.kind === "junction" && dimensions
+                ? {
+                    junction: {
+                      ...component.junction,
+                      dimensions: {
+                        width: length(dimensions.width),
+                        height: length(dimensions.height),
+                        depth: length(dimensions.depth),
+                      },
+                    },
+                  }
+                : {}),
+            }
+          : component,
+      ),
+    });
+  }
+  const latestSplitter = project.components.find(
+    (component) => component.id === splitter.id,
+  )!;
+  const source = project.components[0]!;
+  const outputA = project.components[2]!;
+  const outputB = project.components[3]!;
+  const connections = [
+    {
+      id: "connection_splitter_input",
+      sourcePortId: project.ports.find(
+        (port) => port.componentId === source.id && port.direction === "output",
+      )!.id,
+      targetPortId: project.ports.find(
+        (port) => port.componentId === latestSplitter.id && port.name === "Input",
+      )!.id,
+      metadata: {},
+    },
+    {
+      id: "connection_splitter_output_a",
+      sourcePortId: project.ports.find(
+        (port) => port.componentId === latestSplitter.id && port.name === "Output A",
+      )!.id,
+      targetPortId: project.ports.find(
+        (port) => port.componentId === outputA.id && port.direction === "input",
+      )!.id,
+      metadata: {},
+    },
+    {
+      id: "connection_splitter_output_b",
+      sourcePortId: project.ports.find(
+        (port) => port.componentId === latestSplitter.id && port.name === "Output B",
+      )!.id,
+      targetPortId: project.ports.find(
+        (port) => port.componentId === outputB.id && port.direction === "input",
+      )!.id,
+      metadata: {},
+    },
+  ];
+  const widths = input?.widths ?? [0.6, 0.25, 0.4];
+  const depths = input?.depths ?? [0.15, 0.2, 0.18];
+  return parseProject({
+    ...project,
+    connections,
+    physicalRoutes: connections.map((connection, index) => ({
+      id: `route_${connection.id}`,
+      connectionId: connection.id,
+      layerId: "layer_flow",
+      pattern: { kind: "straight" as const },
+      width: length(widths[index]!),
+      depth: length(depths[index]!),
+      metadata: {},
+    })),
+  });
+}
+
+function routedMergerProject(input?: {
+  widths?: [number, number, number];
+  depths?: [number, number, number];
+}): Project {
+  let project = withComponent(baseProject(), "reservoir.sample-inlet", 1, 2);
+  project = withComponent(project, "reservoir.reagent-inlet", 1, 6);
+  project = withComponent(project, "junction.merger", 8, 4);
+  project = withComponent(project, "chamber.reaction", 14, 4);
+  const merger = project.components.find((component) =>
+    component.name.includes("Merger"),
+  )!;
+  const connections = [
+    {
+      id: "connection_merger_input_a",
+      sourcePortId: project.ports.find(
+        (port) =>
+          port.componentId === project.components[0]!.id && port.direction === "output",
+      )!.id,
+      targetPortId: project.ports.find(
+        (port) => port.componentId === merger.id && port.name === "Input A",
+      )!.id,
+      metadata: {},
+    },
+    {
+      id: "connection_merger_input_b",
+      sourcePortId: project.ports.find(
+        (port) =>
+          port.componentId === project.components[1]!.id && port.direction === "output",
+      )!.id,
+      targetPortId: project.ports.find(
+        (port) => port.componentId === merger.id && port.name === "Input B",
+      )!.id,
+      metadata: {},
+    },
+    {
+      id: "connection_merger_output",
+      sourcePortId: project.ports.find(
+        (port) => port.componentId === merger.id && port.direction === "output",
+      )!.id,
+      targetPortId: project.ports.find(
+        (port) =>
+          port.componentId === project.components[3]!.id && port.direction === "input",
+      )!.id,
+      metadata: {},
+    },
+  ];
+  const widths = input?.widths ?? [0.3, 0.6, 0.45];
+  const depths = input?.depths ?? [0.15, 0.2, 0.18];
+  return parseProject({
+    ...project,
+    connections,
+    physicalRoutes: connections.map((connection, index) => ({
+      id: `route_${connection.id}`,
+      connectionId: connection.id,
+      layerId: "layer_flow",
+      pattern: { kind: "straight" as const },
+      width: length(widths[index]!),
+      depth: length(depths[index]!),
+      metadata: {},
+    })),
+  });
+}
+
+function length(value: number) {
+  return {
+    value,
+    unit: "mm" as const,
+    provenance: { source: "user-entered" as const },
+  };
+}
+
 function expectPoint3D(
   actual: { x: number; y: number; z: number },
   expected: { x: number; y: number; z: number },
@@ -201,6 +376,181 @@ function expectPoint3D(
   expect(actual.x).toBeCloseTo(expected.x);
   expect(actual.y).toBeCloseTo(expected.y);
   expect(actual.z).toBeCloseTo(expected.z);
+}
+
+function signedArea(points: readonly Point2D[]): number {
+  let area = 0;
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index]!;
+    const next = points[(index + 1) % points.length]!;
+    area += current.x * next.y - next.x * current.y;
+  }
+  return area / 2;
+}
+
+function polygonIsConcave(points: readonly Point2D[]): boolean {
+  const orientation = Math.sign(signedArea(points));
+  return points.some((point, index) => {
+    const previous = points[(index + points.length - 1) % points.length]!;
+    const next = points[(index + 1) % points.length]!;
+    const turn =
+      (point.x - previous.x) * (next.y - point.y) -
+      (point.y - previous.y) * (next.x - point.x);
+    return orientation * turn < -1e-9;
+  });
+}
+
+function throatWidthAtPort(
+  boundary: readonly Point2D[],
+  portInterface: {
+    portPosition: Point2D;
+    interfaceTangent: Point2D;
+    width: number;
+  },
+): number {
+  const normal = {
+    x: -portInterface.interfaceTangent.y,
+    y: portInterface.interfaceTangent.x,
+  };
+  const left = addTestPoint(
+    portInterface.portPosition,
+    scaleTestPoint(normal, portInterface.width / 2),
+  );
+  const right = addTestPoint(
+    portInterface.portPosition,
+    scaleTestPoint(normal, -portInterface.width / 2),
+  );
+  expect(boundary.some((point) => pointsClose(point, left))).toBe(true);
+  expect(boundary.some((point) => pointsClose(point, right))).toBe(true);
+  return distance(left, right);
+}
+
+function normalizeTestPoint(point: Point2D): Point2D {
+  const length = Math.hypot(point.x, point.y);
+  expect(length).toBeGreaterThan(0);
+  return { x: point.x / length, y: point.y / length };
+}
+
+function expectUnitVector(actual: Point2D, expected: Point2D) {
+  const normalizedExpected = normalizeTestPoint(expected);
+  expect(actual.x).toBeCloseTo(normalizedExpected.x, 6);
+  expect(actual.y).toBeCloseTo(normalizedExpected.y, 6);
+}
+
+function manualRouteWithEndpointTangent(
+  project: Project,
+  routeId: string,
+  endpoint: "source" | "target",
+  tangentTowardTarget: Point2D,
+): Project {
+  const route = project.physicalRoutes.find((candidate) => candidate.id === routeId)!;
+  const connection = project.connections.find(
+    (candidate) => candidate.id === route.connectionId,
+  )!;
+  const portId =
+    endpoint === "source" ? connection.sourcePortId : connection.targetPortId;
+  const port = project.ports.find((candidate) => candidate.id === portId)!;
+  const component = project.components.find(
+    (candidate) => candidate.id === port.componentId,
+  )!;
+  const portPosition = getPhysicalPortPosition(project, component, port);
+  const tangent = normalizeTestPoint(tangentTowardTarget);
+  const waypoint =
+    endpoint === "source"
+      ? addTestPoint(portPosition, tangent)
+      : addTestPoint(portPosition, scaleTestPoint(tangent, -1));
+  return parseProject({
+    ...project,
+    physicalRoutes: project.physicalRoutes.map((candidate) =>
+      candidate.id === routeId
+        ? {
+            ...candidate,
+            pattern: {
+              kind: "manual" as const,
+              waypoints: [
+                {
+                  x: length(waypoint.x),
+                  y: length(waypoint.y),
+                },
+              ],
+            },
+          }
+        : candidate,
+    ),
+  });
+}
+
+function addTestPoint(left: Point2D, right: Point2D): Point2D {
+  return { x: left.x + right.x, y: left.y + right.y };
+}
+
+function scaleTestPoint(point: Point2D, factor: number): Point2D {
+  return { x: point.x * factor, y: point.y * factor };
+}
+
+function pointsClose(left: Point2D, right: Point2D): boolean {
+  return distance(left, right) <= 1e-9;
+}
+
+function pointInOrOnPolygon(point: Point2D, polygon: readonly Point2D[]): boolean {
+  return (
+    isPointInsidePolygon(point, polygon) ||
+    polygon.some(
+      (candidate, index) =>
+        pointToSegmentDistance(
+          point,
+          candidate,
+          polygon[(index + 1) % polygon.length]!,
+        ) <= 1e-6,
+    )
+  );
+}
+
+function pointToSegmentDistance(point: Point2D, start: Point2D, end: Point2D): number {
+  const segment = { x: end.x - start.x, y: end.y - start.y };
+  const lengthSquared = segment.x * segment.x + segment.y * segment.y;
+  if (lengthSquared <= 1e-18) {
+    return distance(point, start);
+  }
+  const projection = clampForTest(
+    ((point.x - start.x) * segment.x + (point.y - start.y) * segment.y) / lengthSquared,
+    0,
+    1,
+  );
+  return distance(point, {
+    x: start.x + segment.x * projection,
+    y: start.y + segment.y * projection,
+  });
+}
+
+function clampForTest(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function expectPathInsidePolygon(
+  polygon: readonly Point2D[],
+  start: Point2D,
+  end: Point2D,
+) {
+  for (const fraction of [0.1, 0.25, 0.5, 0.75, 0.9]) {
+    expect(
+      pointInOrOnPolygon(
+        {
+          x: start.x + (end.x - start.x) * fraction,
+          y: start.y + (end.y - start.y) * fraction,
+        },
+        polygon,
+      ),
+    ).toBe(true);
+  }
+}
+
+function expectPoint2D(
+  actual: { x: number; y: number },
+  expected: { x: number; y: number },
+) {
+  expect(actual.x).toBeCloseTo(expected.x);
+  expect(actual.y).toBeCloseTo(expected.y);
 }
 
 function testLine(start: { x: number; y: number }, end: { x: number; y: number }) {
@@ -651,7 +1001,7 @@ describe("geometry-core", () => {
       width: 2,
       height: 1,
       depth: 0.2,
-      source: "registry-physical-metadata",
+      source: "project-dimensions",
     });
     expect(getPhysicalPortPosition(project, component, input)).toMatchObject({
       x: 4,
@@ -663,6 +1013,71 @@ describe("geometry-core", () => {
       y: 2.25,
       layerId: "layer_flow",
     });
+  });
+
+  it("uses explicit junction instance dimensions for footprints, port frames, and rotation", () => {
+    const created = createComponentFromDefinition({
+      definitionKey: "junction.merger",
+      layerId: "layer_flow",
+      position: { x: 4, y: 2 },
+      rotation: Math.PI / 2,
+      parameterOverrides: {
+        width: { value: 4, unit: "mm", provenance: { source: "user-entered" } },
+        height: { value: 2, unit: "mm", provenance: { source: "user-entered" } },
+        depth: { value: 0.5, unit: "mm", provenance: { source: "user-entered" } },
+      },
+    });
+    const project = parseProject({
+      ...baseProject(),
+      components: [created.component],
+      ports: created.ports,
+    });
+    const inputA = project.ports.find((port) => port.name === "Input A")!;
+    const output = project.ports.find((port) => port.name === "Output")!;
+
+    expect(deriveComponentFootprint(project.components[0]!)).toMatchObject({
+      width: 4,
+      height: 2,
+      depth: 0.5,
+      source: "project-dimensions",
+    });
+    expect(
+      getPhysicalPortPosition(project, project.components[0]!, inputA),
+    ).toMatchObject({
+      x: 6.5,
+      y: 1,
+      layerId: "layer_flow",
+    });
+    expect(
+      getPhysicalPortPosition(project, project.components[0]!, output),
+    ).toMatchObject({
+      x: 6,
+      y: 5,
+      layerId: "layer_flow",
+    });
+  });
+
+  it("reports component cavity depth that exceeds the owning layer thickness", () => {
+    const created = createComponentFromDefinition({
+      definitionKey: "junction.splitter",
+      layerId: "layer_control",
+      position: { x: 1, y: 1 },
+      parameterOverrides: {
+        depth: { value: 0.75, unit: "mm", provenance: { source: "user-entered" } },
+      },
+    });
+    const project = parseProject({
+      ...baseProject(),
+      components: [created.component],
+      ports: created.ports,
+    });
+
+    expect(validatePhysicalGeometry(project)).toContainEqual(
+      expect.objectContaining({
+        code: "component-depth-exceeds-layer",
+        entityId: created.component.id,
+      }),
+    );
   });
 
   it("checks rotated footprints against chip bounds", () => {
@@ -862,6 +1277,577 @@ describe("geometry-core", () => {
     expect(
       scene.ports.filter((port) => port.componentId === project.components[0]!.id),
     ).toHaveLength(3);
+  });
+
+  it("derives splitter topology from physical port frames with independent route sizes", () => {
+    const project = routedSplitterProject();
+    const splitter = project.components.find((component) =>
+      component.name.includes("Splitter"),
+    )!;
+    const topology = deriveJunctionTopology(project, splitter)!;
+    const byName = new Map(
+      topology.branches.map((branch) => [
+        project.ports.find((port) => port.id === branch.portId)!.name,
+        branch,
+      ]),
+    );
+    const sceneComponent = projectToSceneGeometry(project).components.find(
+      (component) => component.id === splitter.id,
+    )!;
+
+    expect(topology.definitionKey).toBe("junction.splitter");
+    expect(topology.branches).toHaveLength(3);
+    expect(byName.get("Input")?.width).toBe(0.6);
+    expect(byName.get("Output A")?.width).toBe(0.25);
+    expect(byName.get("Output B")?.width).toBe(0.4);
+    expect(byName.get("Input")?.depth).toBe(0.15);
+    expect(byName.get("Output A")?.depth).toBe(0.2);
+    expect(byName.get("Output B")?.depth).toBe(0.18);
+    for (const branch of topology.branches) {
+      const componentPort = project.ports.find((port) => port.id === branch.portId)!;
+      expectPoint2D(
+        branch.semanticRole === "input" ? branch.start : branch.end,
+        getPhysicalPortPosition(project, splitter, componentPort),
+      );
+    }
+    expect(topology.body.boundary.length).toBeGreaterThan(3);
+    expect(topology.body.portInterfaces).toHaveLength(3);
+    expect(polygonIsConcave(topology.body.boundary)).toBe(true);
+    expect(topology.issues.map((issue) => issue.code)).not.toContain(
+      "junction-body-self-intersection",
+    );
+    expect(sceneComponent.renderMode).toBe("junction-body");
+    expect(sceneComponent.junctionBody?.boundary.length).toBeGreaterThan(3);
+    expect(sceneComponent.junctionBody?.portInterfaces).toHaveLength(3);
+  });
+
+  it("derives an equal-width splitter body as one simple polygon", () => {
+    const project = routedSplitterProject({ widths: [0.4, 0.4, 0.4] });
+    const splitter = project.components.find((component) =>
+      component.name.includes("Splitter"),
+    )!;
+    const topology = deriveJunctionTopology(project, splitter)!;
+
+    expect(topology.body.boundary.length).toBeGreaterThan(3);
+    expect(polygonIsConcave(topology.body.boundary)).toBe(true);
+    expect(
+      topology.body.portInterfaces.map((portInterface) => portInterface.width),
+    ).toEqual([0.4, 0.4, 0.4]);
+    for (const portInterface of topology.body.portInterfaces) {
+      expect(throatWidthAtPort(topology.body.boundary, portInterface)).toBeCloseTo(
+        0.4,
+        6,
+      );
+    }
+    expect(topology.issues.map((issue) => issue.code)).not.toContain(
+      "junction-body-self-intersection",
+    );
+  });
+
+  it("keeps the splitter center inside a continuous central fork", () => {
+    const project = routedSplitterProject({ widths: [0.4, 0.4, 0.4] });
+    const splitter = project.components.find((component) =>
+      component.name.includes("Splitter"),
+    )!;
+    const topology = deriveJunctionTopology(project, splitter)!;
+
+    expect(pointInOrOnPolygon(topology.body.center, topology.body.boundary)).toBe(true);
+    for (const offset of [
+      { x: 0.01, y: 0 },
+      { x: -0.01, y: 0 },
+      { x: 0, y: 0.01 },
+      { x: 0, y: -0.01 },
+    ]) {
+      expect(
+        pointInOrOnPolygon(
+          addTestPoint(topology.body.center, offset),
+          topology.body.boundary,
+        ),
+      ).toBe(true);
+    }
+    for (const portInterface of topology.body.portInterfaces) {
+      expectPathInsidePolygon(
+        topology.body.boundary,
+        portInterface.portPosition,
+        topology.body.center,
+      );
+    }
+  });
+
+  it("keeps input-to-output splitter paths connected through the central fork", () => {
+    const project = routedSplitterProject({ widths: [0.4, 0.4, 0.4] });
+    const splitter = project.components.find((component) =>
+      component.name.includes("Splitter"),
+    )!;
+    const topology = deriveJunctionTopology(project, splitter)!;
+    const interfacesByName = new Map(
+      topology.body.portInterfaces.map((portInterface) => [
+        project.ports.find((port) => port.id === portInterface.portId)!.name,
+        portInterface,
+      ]),
+    );
+
+    expectPathInsidePolygon(
+      topology.body.boundary,
+      interfacesByName.get("Input")!.portPosition,
+      topology.body.center,
+    );
+    expectPathInsidePolygon(
+      topology.body.boundary,
+      topology.body.center,
+      interfacesByName.get("Output A")!.portPosition,
+    );
+    expectPathInsidePolygon(
+      topology.body.boundary,
+      topology.body.center,
+      interfacesByName.get("Output B")!.portPosition,
+    );
+  });
+
+  it("keeps a screenshot-like adaptive splitter fork filled and connected", () => {
+    let project = routedSplitterProject({ widths: [0.4, 0.3, 0.35] });
+    project = manualRouteWithEndpointTangent(
+      project,
+      "route_connection_splitter_input",
+      "target",
+      { x: 1, y: 0 },
+    );
+    project = manualRouteWithEndpointTangent(
+      project,
+      "route_connection_splitter_output_a",
+      "source",
+      { x: 1, y: -1 },
+    );
+    project = manualRouteWithEndpointTangent(
+      project,
+      "route_connection_splitter_output_b",
+      "source",
+      { x: 1, y: 0 },
+    );
+    const splitter = project.components.find((component) =>
+      component.name.includes("Splitter"),
+    )!;
+    const topology = deriveJunctionTopology(project, splitter)!;
+
+    expect(topology.issues).toEqual([]);
+    expect(pointInOrOnPolygon(topology.body.center, topology.body.boundary)).toBe(true);
+    expect(polygonIsConcave(topology.body.boundary)).toBe(true);
+    for (const portInterface of topology.body.portInterfaces) {
+      expect(throatWidthAtPort(topology.body.boundary, portInterface)).toBeCloseTo(
+        portInterface.width,
+        6,
+      );
+      expectPathInsidePolygon(
+        topology.body.boundary,
+        portInterface.portPosition,
+        topology.body.center,
+      );
+    }
+  });
+
+  it("keeps default splitter central fork mirror-symmetric", () => {
+    const project = withComponent(baseProject(), "junction.splitter", 8, 4);
+    const splitter = project.components[0]!;
+    const topology = deriveJunctionTopology(project, splitter)!;
+    const mirrored = topology.body.boundary.map((point) => ({
+      x: point.x,
+      y: topology.body.center.y * 2 - point.y,
+    }));
+
+    for (const point of mirrored) {
+      expect(
+        topology.body.boundary.some((candidate) => distance(candidate, point) <= 1e-6),
+      ).toBe(true);
+    }
+  });
+
+  it("uses deterministic preview fallbacks for unconnected junction ports", () => {
+    const project = withComponent(baseProject(), "junction.splitter", 8, 4);
+    const splitter = project.components[0]!;
+    const topology = deriveJunctionTopology(project, splitter)!;
+
+    expect(topology.body.portInterfaces).toHaveLength(3);
+    expect(
+      topology.body.portInterfaces.every(
+        (portInterface) =>
+          portInterface.width === topology.fallbackWidth &&
+          portInterface.depth === topology.fallbackDepth &&
+          !portInterface.connectionId &&
+          !portInterface.physicalRouteId,
+      ),
+    ).toBe(true);
+    expect(topology.body.boundary.length).toBeGreaterThan(3);
+    expect(polygonIsConcave(topology.body.boundary)).toBe(true);
+  });
+
+  it("derives a merger scene body without a generic box and preserves per-port route widths", () => {
+    const project = routedMergerProject();
+    const merger = project.components.find((component) =>
+      component.name.includes("Merger"),
+    )!;
+    const sceneComponent = projectToSceneGeometry(project).components.find(
+      (component) => component.id === merger.id,
+    )!;
+    const interfacesByPortName = new Map(
+      sceneComponent.junctionBody!.portInterfaces.map((portInterface) => [
+        project.ports.find((port) => port.id === portInterface.portId)!.name,
+        portInterface,
+      ]),
+    );
+
+    expect(sceneComponent.renderMode).toBe("junction-body");
+    expect(sceneComponent.junctionBody?.boundary.length).toBeGreaterThan(3);
+    expect(sceneComponent.junctionBody?.portInterfaces).toHaveLength(3);
+    expect(
+      polygonIsConcave(deriveJunctionTopology(project, merger)!.body.boundary),
+    ).toBe(true);
+    expect(interfacesByPortName.get("Input A")?.width).toBe(0.3);
+    expect(interfacesByPortName.get("Input B")?.width).toBe(0.6);
+    expect(interfacesByPortName.get("Output")?.width).toBe(0.45);
+    expect(interfacesByPortName.get("Input A")?.depth).toBe(0.15);
+    expect(interfacesByPortName.get("Input B")?.depth).toBe(0.2);
+    expect(interfacesByPortName.get("Output")?.depth).toBe(0.18);
+  });
+
+  it("keeps merger branches connected through the central fork", () => {
+    const project = routedMergerProject({ widths: [0.3, 0.4, 0.35] });
+    const merger = project.components.find((component) =>
+      component.name.includes("Merger"),
+    )!;
+    const topology = deriveJunctionTopology(project, merger)!;
+
+    expect(pointInOrOnPolygon(topology.body.center, topology.body.boundary)).toBe(true);
+    for (const portInterface of topology.body.portInterfaces) {
+      expectPathInsidePolygon(
+        topology.body.boundary,
+        portInterface.portPosition,
+        topology.body.center,
+      );
+    }
+  });
+
+  it("preserves variable splitter throat widths at exact port interfaces", () => {
+    const project = routedSplitterProject({ widths: [0.6, 0.25, 0.4] });
+    const splitter = project.components.find((component) =>
+      component.name.includes("Splitter"),
+    )!;
+    const topology = deriveJunctionTopology(project, splitter)!;
+    const expectedByName = new Map([
+      ["Input", 0.6],
+      ["Output A", 0.25],
+      ["Output B", 0.4],
+    ]);
+
+    expect(polygonIsConcave(topology.body.boundary)).toBe(true);
+    for (const portInterface of topology.body.portInterfaces) {
+      const portName = project.ports.find(
+        (port) => port.id === portInterface.portId,
+      )!.name;
+      expect(throatWidthAtPort(topology.body.boundary, portInterface)).toBeCloseTo(
+        expectedByName.get(portName)!,
+        6,
+      );
+    }
+  });
+
+  it("preserves variable merger throat widths at exact port interfaces", () => {
+    const project = routedMergerProject({ widths: [0.3, 0.6, 0.45] });
+    const merger = project.components.find((component) =>
+      component.name.includes("Merger"),
+    )!;
+    const topology = deriveJunctionTopology(project, merger)!;
+    const expectedByName = new Map([
+      ["Input A", 0.3],
+      ["Input B", 0.6],
+      ["Output", 0.45],
+    ]);
+
+    expect(polygonIsConcave(topology.body.boundary)).toBe(true);
+    for (const portInterface of topology.body.portInterfaces) {
+      const portName = project.ports.find(
+        (port) => port.id === portInterface.portId,
+      )!.name;
+      expect(throatWidthAtPort(topology.body.boundary, portInterface)).toBeCloseTo(
+        expectedByName.get(portName)!,
+        6,
+      );
+    }
+  });
+
+  it("adapts junction throat orientation to a horizontal connected route", () => {
+    const project = manualRouteWithEndpointTangent(
+      routedMergerProject(),
+      "route_connection_merger_input_a",
+      "target",
+      { x: 1, y: 0 },
+    );
+    const merger = project.components.find((component) =>
+      component.name.includes("Merger"),
+    )!;
+    const topology = deriveJunctionTopology(project, merger)!;
+    const inputA = topology.body.portInterfaces.find(
+      (portInterface) =>
+        project.ports.find((port) => port.id === portInterface.portId)!.name ===
+        "Input A",
+    )!;
+
+    expectUnitVector(
+      deriveRouteEndpointTangent(
+        project,
+        project.physicalRoutes.find(
+          (route) => route.id === "route_connection_merger_input_a",
+        )!,
+        inputA.portId,
+      )!,
+      { x: 1, y: 0 },
+    );
+    expectUnitVector(inputA.interfaceTangent, { x: 1, y: 0 });
+    expect(throatWidthAtPort(topology.body.boundary, inputA)).toBeCloseTo(0.3, 6);
+  });
+
+  it("adapts junction throat orientation to a diagonal connected route", () => {
+    const project = manualRouteWithEndpointTangent(
+      routedMergerProject(),
+      "route_connection_merger_input_b",
+      "target",
+      { x: 1, y: -1 },
+    );
+    const merger = project.components.find((component) =>
+      component.name.includes("Merger"),
+    )!;
+    const topology = deriveJunctionTopology(project, merger)!;
+    const inputB = topology.body.portInterfaces.find(
+      (portInterface) =>
+        project.ports.find((port) => port.id === portInterface.portId)!.name ===
+        "Input B",
+    )!;
+
+    expectUnitVector(inputB.interfaceTangent, { x: 1, y: -1 });
+    expect(throatWidthAtPort(topology.body.boundary, inputB)).toBeCloseTo(0.6, 6);
+  });
+
+  it("preserves independent merger throat tangents", () => {
+    let project = routedMergerProject();
+    project = manualRouteWithEndpointTangent(
+      project,
+      "route_connection_merger_input_a",
+      "target",
+      { x: 1, y: 0 },
+    );
+    project = manualRouteWithEndpointTangent(
+      project,
+      "route_connection_merger_input_b",
+      "target",
+      { x: 1, y: -1 },
+    );
+    project = manualRouteWithEndpointTangent(
+      project,
+      "route_connection_merger_output",
+      "source",
+      { x: 0, y: 1 },
+    );
+    const merger = project.components.find((component) =>
+      component.name.includes("Merger"),
+    )!;
+    const topology = deriveJunctionTopology(project, merger)!;
+    const byName = new Map(
+      topology.body.portInterfaces.map((portInterface) => [
+        project.ports.find((port) => port.id === portInterface.portId)!.name,
+        portInterface,
+      ]),
+    );
+
+    expectUnitVector(byName.get("Input A")!.interfaceTangent, { x: 1, y: 0 });
+    expectUnitVector(byName.get("Input B")!.interfaceTangent, { x: 1, y: -1 });
+    expectUnitVector(byName.get("Output")!.interfaceTangent, { x: 0, y: 1 });
+  });
+
+  it("caps splitter/merger route preview bodies at the port interface plane", () => {
+    const project = routedSplitterProject();
+    const route = project.physicalRoutes.find(
+      (candidate) => candidate.id === "route_connection_splitter_input",
+    )!;
+    const generated = deriveRouteGeometry(project, route);
+    const regular = deriveRouteBodyPrimitivesWithInterfaces(
+      project,
+      route,
+      generated.primitives,
+      route.width!.value,
+    );
+    const capped = deriveRouteBodyPrimitivesWithInterfaces(
+      project,
+      route,
+      generated.primitives,
+      route.width!.value,
+      1e-6,
+      { capJunctionInterfaces: true },
+    );
+
+    expect(regular.primitives).toHaveLength(generated.primitives.length + 2);
+    expect(capped.primitives).toHaveLength(generated.primitives.length + 1);
+    expectPoint2D(
+      capped.primitives[capped.primitives.length - 1]!.end,
+      capped.interfaces.target!.portPosition,
+    );
+  });
+
+  it("updates one junction interface width and depth from live route edits only", () => {
+    const project = routedMergerProject();
+    const oriented = manualRouteWithEndpointTangent(
+      project,
+      "route_connection_merger_input_a",
+      "target",
+      { x: 1, y: 0 },
+    );
+    const edited = parseProject({
+      ...oriented,
+      physicalRoutes: oriented.physicalRoutes.map((route) =>
+        route.connectionId === "connection_merger_input_a"
+          ? {
+              ...route,
+              width: length(0.7),
+              depth: length(0.18),
+            }
+          : route,
+      ),
+    });
+    const merger = edited.components.find((component) =>
+      component.name.includes("Merger"),
+    )!;
+    const sceneComponent = projectToSceneGeometry(edited).components.find(
+      (component) => component.id === merger.id,
+    )!;
+    const interfacesByPortName = new Map(
+      sceneComponent.junctionBody!.portInterfaces.map((portInterface) => [
+        edited.ports.find((port) => port.id === portInterface.portId)!.name,
+        portInterface,
+      ]),
+    );
+
+    expect(interfacesByPortName.get("Input A")?.width).toBe(0.7);
+    expect(interfacesByPortName.get("Input A")?.depth).toBe(0.18);
+    expectUnitVector(interfacesByPortName.get("Input A")!.interfaceTangent, {
+      x: 1,
+      y: 0,
+    });
+    expect(interfacesByPortName.get("Input B")?.width).toBe(0.6);
+    expect(interfacesByPortName.get("Output")?.width).toBe(0.45);
+    expect(edited.components.map((component) => component.id)).toEqual(
+      oriented.components.map((component) => component.id),
+    );
+    expect(edited.connections.map((connection) => connection.id)).toEqual(
+      oriented.connections.map((connection) => connection.id),
+    );
+    expect(edited.physicalRoutes.map((route) => route.id)).toEqual(
+      oriented.physicalRoutes.map((route) => route.id),
+    );
+  });
+
+  it("regenerates junction throat orientation when route geometry changes", () => {
+    const project = manualRouteWithEndpointTangent(
+      routedMergerProject(),
+      "route_connection_merger_input_a",
+      "target",
+      { x: 1, y: 0 },
+    );
+    const edited = manualRouteWithEndpointTangent(
+      project,
+      "route_connection_merger_input_a",
+      "target",
+      { x: 1, y: 1 },
+    );
+    const merger = edited.components.find((component) =>
+      component.name.includes("Merger"),
+    )!;
+    const inputA = deriveJunctionTopology(edited, merger)!.body.portInterfaces.find(
+      (portInterface) =>
+        edited.ports.find((port) => port.id === portInterface.portId)!.name ===
+        "Input A",
+    )!;
+
+    expectUnitVector(inputA.interfaceTangent, { x: 1, y: 1 });
+    expect(edited.physicalRoutes.map((route) => route.id)).toEqual(
+      project.physicalRoutes.map((route) => route.id),
+    );
+  });
+
+  it("moves splitter scene body interfaces after resize and rotation", () => {
+    const baseline = routedSplitterProject();
+    const resized = routedSplitterProject({
+      splitterDimensions: { width: 3, height: 1.5, depth: 0.25 },
+      rotation: Math.PI / 2,
+    });
+    const baselineSplitter = baseline.components.find((component) =>
+      component.name.includes("Splitter"),
+    )!;
+    const resizedSplitter = resized.components.find((component) =>
+      component.name.includes("Splitter"),
+    )!;
+    const baselineInterface = projectToSceneGeometry(baseline)
+      .components.find((component) => component.id === baselineSplitter.id)!
+      .junctionBody!.portInterfaces.find(
+        (portInterface) =>
+          baseline.ports.find((port) => port.id === portInterface.portId)!.name ===
+          "Output A",
+      )!;
+    const resizedInterface = projectToSceneGeometry(resized)
+      .components.find((component) => component.id === resizedSplitter.id)!
+      .junctionBody!.portInterfaces.find(
+        (portInterface) =>
+          resized.ports.find((port) => port.id === portInterface.portId)!.name ===
+          "Output A",
+      )!;
+    const outputAPort = resized.ports.find(
+      (port) => port.componentId === resizedSplitter.id && port.name === "Output A",
+    )!;
+    const outputACad = toCadPoint(
+      resized,
+      getPhysicalPortPosition(resized, resizedSplitter, outputAPort),
+      "layer_flow",
+    );
+    const resizedTopology = deriveJunctionTopology(resized, resizedSplitter)!;
+    const resizedOutputAInterface = resizedTopology.body.portInterfaces.find(
+      (portInterface) =>
+        resized.ports.find((port) => port.id === portInterface.portId)!.name ===
+        "Output A",
+    )!;
+
+    expect(resizedInterface.depth).toBe(0.2);
+    expect(resizedInterface.width).toBe(baselineInterface.width);
+    expect(resizedInterface.portPosition).not.toEqual(baselineInterface.portPosition);
+    expectPoint2D(resizedInterface.portPosition, outputACad);
+    expect(
+      throatWidthAtPort(resizedTopology.body.boundary, resizedOutputAInterface),
+    ).toBeCloseTo(baselineInterface.width, 6);
+  });
+
+  it("keeps junction depth validation inclusive of equality", () => {
+    const valid = validatePhysicalGeometry(routedSplitterProject());
+    const equal = validatePhysicalGeometry(
+      routedSplitterProject({ depths: [0.2, 0.2, 0.2] }),
+    );
+
+    expect(valid.map((issue) => issue.code)).not.toContain(
+      "junction-route-depth-exceeds-component-depth",
+    );
+    expect(equal.map((issue) => issue.code)).not.toContain(
+      "junction-route-depth-exceeds-component-depth",
+    );
+  });
+
+  it("surfaces over-depth connected routes for junction interfaces", () => {
+    const project = routedSplitterProject({
+      depths: [0.3, 0.2, 0.18],
+    });
+    const issues = validatePhysicalGeometry(project);
+    const scene = projectToSceneGeometry(project);
+
+    expect(issues.map((issue) => issue.code)).toContain(
+      "junction-route-depth-exceeds-component-depth",
+    );
+    expect(scene.warnings.map((warning) => warning.code)).toContain(
+      "junction-route-depth-exceeds-component-depth",
+    );
   });
 
   it("keeps asymmetric scene routes aligned to directed source and target ports", () => {

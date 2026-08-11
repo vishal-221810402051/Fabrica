@@ -343,7 +343,9 @@ function readFirstClassValue(
         ? readDimensions(component.dimensions, key)
         : undefined;
     case "junction":
-      return undefined;
+      return component.junction.dimensions
+        ? readDimensions(component.junction.dimensions, key)
+        : undefined;
   }
 }
 
@@ -430,7 +432,16 @@ function writeFirstClassValue(
         dimensions: writeDimensions(component.dimensions ?? {}, key, value),
       } as Component;
     case "junction":
-      return component;
+      if (value === undefined) {
+        return component;
+      }
+      return {
+        ...component,
+        junction: {
+          ...component.junction,
+          dimensions: writeDimensions(component.junction.dimensions ?? {}, key, value),
+        },
+      } as Component;
   }
 }
 

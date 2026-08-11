@@ -4,6 +4,7 @@ import {
   projectToSceneGeometry,
   type SceneComponentGeometry,
   type SceneGeometry,
+  type SceneJunctionBodyGeometry,
   type SceneRouteBodyGeometry,
   type SceneRouteGeometry,
 } from "geometry-core";
@@ -287,13 +288,23 @@ function SceneView(props: {
   );
 }
 
-function ComponentMesh(props: {
+export function ComponentMesh(props: {
   component: SceneComponentGeometry;
   selected: boolean;
   materialMode: MaterialMode;
 }) {
+  if (props.component.renderMode === "junction-body") {
+    return props.component.junctionBody ? (
+      <JunctionBodyMesh
+        body={props.component.junctionBody}
+        selected={props.selected}
+        materialMode={props.materialMode}
+      />
+    ) : null;
+  }
   return (
     <mesh
+      data-testid={`viewer3d-component-box-${props.component.id}`}
       position={toThreePosition(props.component.center)}
       rotation={[0, props.component.rotation, 0]}
       onClick={(event: ViewerPointerEvent) => {
@@ -312,6 +323,38 @@ function ComponentMesh(props: {
         color={props.selected ? "#0f766e" : "#38bdf8"}
         transparent={props.materialMode === "transparent"}
         opacity={props.materialMode === "transparent" ? 0.64 : 1}
+        wireframe={props.materialMode === "wireframe"}
+      />
+    </mesh>
+  );
+}
+
+function JunctionBodyMesh(props: {
+  body: SceneJunctionBodyGeometry;
+  selected: boolean;
+  materialMode: MaterialMode;
+}) {
+  const shape = useMemo(() => createRouteShape(props.body.boundary), [props.body]);
+  const geometry = useMemo(
+    () => createRouteExtrudeGeometry(shape, props.body.depth),
+    [props.body.depth, shape],
+  );
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return (
+    <mesh
+      data-testid={`viewer3d-junction-body-${props.body.componentId}`}
+      position={[0, props.body.zBottom, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      onClick={(event: ViewerPointerEvent) => {
+        event.stopPropagation();
+        projectStore.getState().setSelectedComponents([props.body.componentId]);
+      }}
+    >
+      <primitive attach="geometry" object={geometry} />
+      <meshStandardMaterial
+        color={props.selected ? "#0f766e" : "#22c55e"}
+        transparent={props.materialMode === "transparent"}
+        opacity={props.materialMode === "transparent" ? 0.72 : 1}
         wireframe={props.materialMode === "wireframe"}
       />
     </mesh>

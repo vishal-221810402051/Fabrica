@@ -71,6 +71,18 @@ export interface EditorPortProjection {
   full: boolean;
 }
 
+export interface EditorJunctionPortInterfaceProjection {
+  portId: PortId;
+  portPosition: Point;
+  width: number;
+  semanticRole: "input" | "output";
+}
+
+export interface EditorJunctionBodyProjection {
+  boundary: Point[];
+  portInterfaces: EditorJunctionPortInterfaceProjection[];
+}
+
 export interface EditorNodeData extends Record<string, unknown> {
   componentId: ComponentId;
   definitionKey: string;
@@ -84,7 +96,9 @@ export interface EditorNodeData extends Record<string, unknown> {
   laneName: string | null;
   selected: boolean;
   physicalSize: Point;
+  rotation: number;
   physicalReady: boolean;
+  junctionBody?: EditorJunctionBodyProjection;
 }
 
 export interface EditorEdgeData extends Record<string, unknown> {

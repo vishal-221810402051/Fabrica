@@ -820,6 +820,8 @@ describe("EditorCanvas React Flow integration", () => {
     const inputA = screen.getByLabelText(/^Input Input A:/);
     const inputB = screen.getByLabelText(/^Input Input B:/);
     const output = screen.getByLabelText(/^Output Output:/);
+    expect(screen.getByTestId("junction-topology-junction.merger")).toBeInTheDocument();
+    expect(screen.getByTestId("junction-body-junction.merger")).toBeInTheDocument();
     expect(inputA).toHaveClass("port-input");
     expect(inputB).toHaveClass("port-input");
     expect(output).toHaveClass("port-output");
