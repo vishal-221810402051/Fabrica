@@ -13,7 +13,8 @@ Phase 0 documented the planned development environment. Phase 1 introduced the e
 - Frontend correctness and formatting: ESLint and Prettier.
 - Version control: Git and GitHub.
 - Future CI: GitHub Actions.
-- Future local multi-service orchestration: Docker Compose.
+- Local multi-service orchestration: Docker Compose for the web, API, and CAD
+  development stack.
 - Future persistence database: PostgreSQL.
 
 The diagnosed local repository path is `C:\Users\visha\Desktop\Projects\fabrica`. This is diagnosis context only and must not become a committed application dependency.
@@ -32,11 +33,20 @@ Secrets must come from local secret storage, deployment secret stores, or GitHub
 
 ## Docker And PostgreSQL
 
-Docker Compose should be introduced when database or multi-service integration requires it. PostgreSQL is the approved persistence database, but it should be introduced only when the persistence phase begins.
+Docker Compose provides the integrated local-development runtime for ordinary
+web, API, and CAD service work. The Compose stack is development-oriented: it
+uses bind-mounted source, visible service logs, container-owned dependency
+caches, and reload-capable service commands.
 
-Phase 1 introduces Docker Compose and a PostgreSQL development service as infrastructure only. The application still contains no SQLAlchemy configuration, Alembic configuration, migration, persistence model, or database business logic.
+PostgreSQL is the approved persistence database, but it should become part of
+ordinary application runtime only when the persistence phase begins. The
+Compose PostgreSQL service is retained under an optional `database` profile as
+future infrastructure only. The application still contains no SQLAlchemy
+configuration, Alembic configuration, migration, persistence model, or database
+business logic.
 
-During Phase 1 diagnosis, Docker CLI and Compose were installed locally, but the Docker daemon was unavailable. Runtime Docker validation therefore depends on a running daemon or CI.
+Docker runtime validation depends on Docker Desktop being installed and running.
+Repository implementation must not modify user Docker Desktop configuration.
 
 ## CAD Dependency Isolation
 

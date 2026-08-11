@@ -37,7 +37,93 @@ Key ports:
 - CAD service: `8001`
 - PostgreSQL: `5432`
 
-## Local Startup
+## Docker Local Startup
+
+Docker Compose is the recommended integrated local-development path when
+Docker Desktop is running.
+
+Before starting Docker, stop any native processes already using ports `5173`,
+`8000`, or `8001`. On Windows, inspect those ports without terminating
+anything:
+
+```powershell
+Get-NetTCPConnection -LocalPort 5173,8000,8001 -ErrorAction SilentlyContinue
+```
+
+Start the default development stack:
+
+```powershell
+docker compose up --build
+```
+
+The default stack starts:
+
+- Web: `http://127.0.0.1:5173`
+- API: `http://127.0.0.1:8000`
+- CAD service: `http://127.0.0.1:8001`
+
+Detached startup:
+
+```powershell
+docker compose up -d --build
+```
+
+Status and logs:
+
+```powershell
+docker compose ps
+docker compose logs -f
+docker compose logs -f cad
+docker compose restart cad
+```
+
+Stop the stack:
+
+```powershell
+docker compose down
+```
+
+The Docker stack bind-mounts repository source for development reload. Source
+edits should not require rebuilding. Changes to JavaScript dependencies,
+Python dependencies, lockfiles, or Dockerfiles require:
+
+```powershell
+docker compose up --build
+```
+
+Container dependency state is isolated from host Windows dependency folders.
+The web service uses container-owned `node_modules` volumes and a pnpm store
+cache. The API and CAD services use uv with a container Python environment
+outside `/workspace` and a container uv cache. Native Windows `node_modules/`,
+`.venv/`, and `.uv-cache/` remain ignored local development state.
+
+The CAD service mounts `./generated-cad` to `/workspace/generated-cad` so future
+local CAD outputs are visible on the host. The path is ignored by Git.
+
+If Docker Desktop on Windows does not report file changes reliably through bind
+mounts, enable a development-only polling fallback for the affected service
+rather than changing application code.
+
+During Phase 9E diagnosis, Docker CLI reported an environment warning when it
+could not read `C:\Users\visha\.docker\config.json` due to access denied. That
+file is user Docker Desktop configuration and is not modified by this
+repository.
+
+Optional future PostgreSQL infrastructure is behind the `database` profile and
+does not start by default:
+
+```powershell
+docker compose --profile database up --build
+```
+
+To remove named dependency caches and optional database state, use only when a
+clean reset is intended:
+
+```powershell
+docker compose down -v
+```
+
+## Native Local Startup
 
 ```powershell
 corepack pnpm dev
@@ -90,9 +176,7 @@ The web editor uses `@xyflow/react@12.11.2`. Manual browser validation should
 confirm click-to-add, movement, connection feedback, property editing, undo,
 redo, export, and import because jsdom tests do not prove pointer ergonomics.
 
-## Docker
-
-`compose.yaml` defines `web`, `api`, `cad-service`, and `postgres`. PostgreSQL exists as infrastructure only; no persistence models, migrations, or database business logic exist in Phase 4.
+## Docker Configuration
 
 Configuration validation:
 
@@ -100,7 +184,11 @@ Configuration validation:
 docker compose config
 ```
 
-Runtime validation with `docker compose up` requires the Docker daemon. During Phase 1 diagnosis, Docker CLI and Compose were installed, but the daemon was unavailable locally.
+Runtime validation with `docker compose up --build` requires Docker Desktop to
+be running. The default service names are `web`, `api`, and `cad`; PostgreSQL
+is retained only under the optional `database` profile. Application services do
+not depend on PostgreSQL today, and there are still no persistence models,
+migrations, or database business rules.
 
 ## Deferred Functionality
 

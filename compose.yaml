@@ -3,27 +3,71 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    command: corepack pnpm --filter @fabrica/web dev -- --host 0.0.0.0 --port 5173
+    command:
+      [
+        "corepack",
+        "pnpm",
+        "--filter",
+        "@fabrica/web",
+        "exec",
+        "vite",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "5173",
+        "--configLoader",
+        "runner",
+      ]
     environment:
+      PNPM_HOME: /pnpm
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8000}
       VITE_CAD_BASE_URL: ${VITE_CAD_BASE_URL:-http://127.0.0.1:8001}
     ports:
       - "${WEB_PORT:-5173}:5173"
-    depends_on:
-      api:
-        condition: service_healthy
-      cad-service:
-        condition: service_healthy
+    volumes:
+      - .:/workspace
+      - node-modules:/workspace/node_modules
+      - web-node-modules:/workspace/apps/web/node_modules
+      - calculations-node-modules:/workspace/packages/calculations/node_modules
+      - geometry-core-node-modules:/workspace/packages/geometry-core/node_modules
+      - layout-engine-node-modules:/workspace/packages/layout-engine/node_modules
+      - microfluidic-components-node-modules:/workspace/packages/microfluidic-components/node_modules
+      - project-model-node-modules:/workspace/packages/project-model/node_modules
+      - ui-node-modules:/workspace/packages/ui/node_modules
+      - units-node-modules:/workspace/packages/units/node_modules
+      - validation-node-modules:/workspace/packages/validation/node_modules
+      - pnpm-store:/pnpm/store
 
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    command:
+      [
+        "uv",
+        "run",
+        "--package",
+        "fabrica-api",
+        "uvicorn",
+        "fabrica_api.main:app",
+        "--app-dir",
+        "apps/api/src",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+      ]
     environment:
       API_ALLOWED_ORIGINS: ${API_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      UV_CACHE_DIR: /uv-cache
+      UV_PROJECT_ENVIRONMENT: /opt/venv
     ports:
       - "${API_PORT:-8000}:8000"
+    volumes:
+      - .:/workspace
+      - uv-cache:/uv-cache
     healthcheck:
       test:
         [
@@ -37,15 +81,37 @@ services:
       retries: 5
       start_period: 10s
 
-  cad-service:
+  cad:
     build:
       context: .
       dockerfile: cad-service/Dockerfile
+    command:
+      [
+        "uv",
+        "run",
+        "--package",
+        "fabrica-cad",
+        "uvicorn",
+        "fabrica_cad.main:app",
+        "--app-dir",
+        "cad-service/src",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8001",
+        "--reload",
+      ]
     environment:
       CAD_ALLOWED_ORIGINS: ${CAD_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      UV_CACHE_DIR: /uv-cache
+      UV_PROJECT_ENVIRONMENT: /opt/venv
     ports:
       - "${CAD_PORT:-8001}:8001"
+    volumes:
+      - .:/workspace
+      - ./generated-cad:/workspace/generated-cad
+      - uv-cache:/uv-cache
     healthcheck:
       test:
         [
@@ -61,6 +127,8 @@ services:
 
   postgres:
     image: postgres:18-alpine
+    profiles:
+      - database
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-fabrica_dev}
       POSTGRES_USER: ${POSTGRES_USER:-fabrica_dev}
@@ -77,4 +145,16 @@ services:
       start_period: 10s
 
 volumes:
+  node-modules:
+  web-node-modules:
+  calculations-node-modules:
+  geometry-core-node-modules:
+  layout-engine-node-modules:
+  microfluidic-components-node-modules:
+  project-model-node-modules:
+  ui-node-modules:
+  units-node-modules:
+  validation-node-modules:
+  pnpm-store:
+  uv-cache:
   postgres-data:
