@@ -163,7 +163,45 @@ corepack pnpm build
 corepack pnpm schema:check
 ```
 
-Python checks are invoked through uv by the root scripts.
+Python checks are invoked through uv by the root scripts. Tests run through
+`python -m pytest` inside that environment so they do not depend on the pytest
+console launcher being executable on Windows.
+
+### Compiled Workspace Package Contract
+
+Shared packages expose compiled JavaScript and declarations under `dist/`.
+Builds must emit both the runtime file advertised by `main`/`exports` and the
+declarations advertised by `types`. Generated output remains ignored by Git.
+The existing CommonJS packages and ESM packages retain their module types.
+
+Package `build`, `typecheck`, and `test` scripts prepare their workspace
+prerequisites explicitly: `project-model` builds `units`,
+`microfluidic-components` builds `project-model`, `geometry-core` builds
+`microfluidic-components`, and the web app builds `geometry-core`. Each build
+recursively prepares its own prerequisites, so filtered package commands do
+not require a remembered bootstrap build. Packages without workspace
+dependencies compile directly. Root recursive commands use the same package
+scripts; CI intentionally still typechecks before its full build step.
+
+Vite source aliases remain useful for development reload and browser tests,
+but they do not establish the compiled package contract. Verify the actual
+Node runtime entrypoints and declaration files with:
+
+```powershell
+corepack pnpm workspace:smoke
+```
+
+This command builds the workspace before running the entrypoint smoke check.
+CI runs `node scripts/check-workspace-entrypoints.mjs` immediately after its
+existing build step. The smoke check resolves each shared package through its
+package exports and imports the emitted runtime without Vite aliases.
+
+For reproducibility checks, use a separate clean checkout or source copy with
+its own dependency installation and no existing `dist` directories. Run
+typecheck, tests, and build independently from missing outputs; success in a
+working tree containing old generated declarations is insufficient evidence.
+Do not remove another developer's outputs or in-progress changes to simulate
+a clean checkout.
 
 Focused Phase 4 checks:
 

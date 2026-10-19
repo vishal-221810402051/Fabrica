@@ -26,7 +26,7 @@ jobs:
         run: corepack pnpm install --frozen-lockfile
 
       - name: Check formatting
-        run: corepack pnpm exec prettier . --check
+        run: corepack pnpm exec prettier . "!.pytest_cache" --check
 
       - name: Lint
         run: corepack pnpm --recursive --if-present lint
@@ -39,6 +39,9 @@ jobs:
 
       - name: Build
         run: corepack pnpm --recursive --if-present build
+
+      - name: Check workspace runtime entrypoints
+        run: node scripts/check-workspace-entrypoints.mjs
 
       - name: Check generated project schema
         run: corepack pnpm schema:check
@@ -71,7 +74,7 @@ jobs:
         run: python -m uv run pyright apps/api/src cad-service/src
 
       - name: Test Python
-        run: python -m uv run pytest
+        run: python -m uv run python -m pytest
 
   configuration:
     name: Configuration and safety

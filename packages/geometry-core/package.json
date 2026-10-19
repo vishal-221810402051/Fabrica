@@ -12,10 +12,10 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "corepack pnpm --filter microfluidic-components build && tsc -p tsconfig.build.json",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "corepack pnpm --filter microfluidic-components build && corepack pnpm --filter project-model build && vitest run src"
+    "typecheck": "corepack pnpm --filter microfluidic-components build && tsc -p tsconfig.json --noEmit",
+    "test": "corepack pnpm --filter microfluidic-components build && vitest run src"
   },
   "dependencies": {
     "microfluidic-components": "workspace:*",

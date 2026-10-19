@@ -13,11 +13,12 @@
     "build": "corepack pnpm --recursive --if-present build",
     "lint": "corepack pnpm --recursive --if-present lint && python scripts/run_uv.py run ruff check apps/api cad-service",
     "typecheck": "corepack pnpm --recursive --if-present typecheck && python scripts/run_uv.py run pyright apps/api/src cad-service/src",
-    "test": "corepack pnpm --recursive --if-present test && python scripts/run_uv.py run pytest",
-    "format": "prettier . --write && python scripts/run_uv.py run ruff format apps/api cad-service",
-    "format:check": "prettier . --check && python scripts/run_uv.py run ruff format --check apps/api cad-service",
+    "test": "corepack pnpm --recursive --if-present test && python scripts/run_uv.py run python -m pytest",
+    "format": "prettier . \"!.pytest_cache\" --write && python scripts/run_uv.py run ruff format apps/api cad-service",
+    "format:check": "prettier . \"!.pytest_cache\" --check && python scripts/run_uv.py run ruff format --check apps/api cad-service",
     "schema:generate": "corepack pnpm --filter project-model schema:generate",
     "schema:check": "corepack pnpm --filter project-model schema:check",
+    "workspace:smoke": "corepack pnpm build && node scripts/check-workspace-entrypoints.mjs",
     "clean": "powershell -ExecutionPolicy Bypass -File scripts/clean.ps1"
   },
   "devDependencies": {
